@@ -285,6 +285,8 @@ function new_host($subnetid,$ip,$item)
     // NEW ADDRESS DATA
     $data = [ "subnetId" => trim($subnetid),
               "ip" => $ip,
+              "mac" => $item['newmac'],
+              "hostname" => $item['newname'],              
               "DHCP" => "NO",
             ];
     $data_string = json_encode($data);
