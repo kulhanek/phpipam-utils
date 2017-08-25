@@ -1,6 +1,6 @@
 # phpIPAM Utilities
 
-Various utilities for [phpIPAM](https://phpipam.net/), which is an open-source web IP address management application (IPAM). 
+Utilities for [phpIPAM](https://phpipam.net/), which is an open-source web IP address management application (IPAM). 
 
 ## Configuration
 

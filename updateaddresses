@@ -131,7 +131,7 @@ function get_hosts()
         exit(1);
     }  
     
-    var_dump($hosts);
+   // var_dump($hosts);
 }
 
 // -----------------------------------------------------------------------------
@@ -141,7 +141,7 @@ function update_host($item)
     global $url, $token, $subnet;
 
     // UPDATE ADDRESS DATA    
-    $data = [ "location" => "1"
+    $data = [ "location" => "0"
             ];
     $data_string = json_encode($data);
         
