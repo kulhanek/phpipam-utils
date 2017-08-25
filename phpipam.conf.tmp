@@ -2,5 +2,6 @@
 $username = "USER";
 $passwd = "PASS";
 $url = "https://NAME/api/SERVICEAPI/";
+$admin = "E-MAIL";
 ?>
 

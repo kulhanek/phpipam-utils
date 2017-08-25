@@ -44,7 +44,6 @@ include 'phpipam.conf';
 $subnetid = 0;
 $data = [];
 $token = "";
-$hosts = "";
 $min_host = "";
 $max_host = "";
 
