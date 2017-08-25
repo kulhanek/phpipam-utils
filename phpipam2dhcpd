@@ -270,12 +270,15 @@ function generate_header($fh)
     fprintf($fh,"\n");
     fprintf($fh,"subnet %s netmask %s {\n",$subnet_data->data->calculation->{'Network'},$subnet_data->data->calculation->{'Subnet netmask'});
     
-    fprintf($fh,"   default-lease-time  14400;\n");
-    fprintf($fh,"   max-lease-time      28800;\n");
+    fprintf($fh,"   default-lease-time         14400;\n");
+    fprintf($fh,"   max-lease-time             28800;\n");
+    fprintf($fh,"   deny                       unknown-clients;\n");    
+    fprintf($fh,"   deny                       bootp;\n");
+
     fprintf($fh,"\n");    
     fprintf($fh,"   option routers             %s;\n",$subnet_data->data->calculation->{'Min host IP'});
     fprintf($fh,"   option subnet-mask         %s;\n",$subnet_data->data->calculation->{'Subnet netmask'});    
-    fprintf($fh,"   option domain-name-servers 147.251.4.33 , 147.251.6.10;\n");
+    fprintf($fh,"   option domain-name-servers 147.251.4.33, 147.251.6.10;\n");
     fprintf($fh,"   option domain-name         \"ncbr.muni.cz\";\n");
     fprintf($fh,"}\n");   
 }
@@ -366,6 +369,9 @@ print_data();
 $subnet_items = explode("/", $subnet);
 $dhcp_conf = $subnet_items[0] . ".conf";
 
+printf("\n"); 
+printf("Generating DHCPD configuration: %s\n",$dhcp_conf);
+
 $fh = fopen($dhcp_conf,"w");
 if( $fh == false ){
     printf(">>> ERROR: Unable to open %s for writing!\n\n",$dhcp_conf);
@@ -379,6 +385,7 @@ foreach($dhcp_classes as $gname){
 
 fclose($fh);
 
+printf("Done!\n");
 printf("\n");   
 
 ?>
