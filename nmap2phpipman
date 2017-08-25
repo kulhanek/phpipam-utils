@@ -1,4 +1,5 @@
 #!/usr/bin/env php
+<?php
 // -----------------------------------------------------------------------------
 // Usage: $ ./nmap2phpipam [-test] <subnet>
 //
@@ -8,7 +9,7 @@
 //        $ ./nmap2phpipam 147.251.90.0/24
 // -----------------------------------------------------------------------------
 
-<?php
+printf("\n");
 
 // subnet is the first argument
 if( (count($argv) != 2) && (count($argv) != 3) ){
@@ -24,7 +25,7 @@ if( $argv[1] == "-test" ){
     }
     $testmode = true;
     printf("SubNet: %s\n",$subnet);
-    printf("Test  : %s\n",$testmode);    
+    printf("Test  : ON\n");    
 } else {
     $subnet = $argv[1];
     if( $subnet == "" ) {
@@ -33,7 +34,7 @@ if( $argv[1] == "-test" ){
     }
     $testmode = false;    
     printf("SubNet: %s\n",$subnet);
-    printf("Test  : %s\n",$testmode);
+    printf("Test  : OFF - changes will be commited to IPAM\n");
 }
 
 // access to phpIPAM api
@@ -45,7 +46,6 @@ $subnetid = 0;
 $data = [];
 $token = "";
 $hosts = "";
-$groups = "";
 
 // -----------------------------------------------------------------------------
 
@@ -56,7 +56,7 @@ function parse_nmap()
     // parse nmap file
     $xml = simplexml_load_file($nmap);
     if( $xml == false ){
-        printf("Unable to load %s\n",$nmap);
+        printf(">>> ERROR: Unable to load %s\n\n",$nmap);
         exit(1);
     }
 
@@ -102,7 +102,7 @@ function init_session()
     $server_output = curl_exec ($ch);
     
     if( $server_output == FALSE ){
-        printf("Unable to connect to IPAM: %s\n",curl_error($ch));
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
         curl_close ($ch);
         exit(1);
     }    
@@ -113,7 +113,7 @@ function init_session()
     
     $token = $json->data->token;
     
-    printf("Session token: %s\n",$token);
+    //printf("Session token: %s\n",$token);
 }
 
 // -----------------------------------------------------------------------------
@@ -136,7 +136,7 @@ function get_subnetid()
     $server_output = curl_exec ($ch);
     
     if( $server_output == FALSE ){
-        printf("Unable to connect to IPAM: %s\n",curl_error($ch));
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
         curl_close ($ch);
         exit(1);
     }    
@@ -146,7 +146,7 @@ function get_subnetid()
     $subnet_data = json_decode($server_output);
     
     if( $subnet_data->success == false ){
-        printf("Unable to get subnet id for %s\n\n",$subnet);
+        printf(">>> ERROR: Unable to get subnet id for %s\n\n",$subnet);
         var_dump($subnet_data); 
         exit(1);
     }    
@@ -174,7 +174,7 @@ function get_hosts()
     $server_output = curl_exec ($ch);
     
     if( $server_output == FALSE ){
-        printf("Unable to connect to IPAM: %s\n",curl_error($ch));
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
         curl_close ($ch);
         exit(1);
     }    
@@ -184,7 +184,7 @@ function get_hosts()
     $hosts = json_decode($server_output);
     
     if( $hosts->success == false ){
-        printf("Unable to get hosts for %s\n\n",$subnet);
+        printf(">>> ERROR: Unable to get hosts for %s\n\n",$subnet);
         var_dump($hosts); 
         exit(1);
     }        
@@ -218,10 +218,10 @@ function get_hosts()
             } else {
                 $item = [
                     'id' => $id,
-                    'oldname' => '',                
-                    'newname' => $name,
-                    'oldmac' => '',
-                    'newmac' => $mac
+                    'oldname' => $name,                
+                    'newname' => '',
+                    'oldmac' => $mac,
+                    'newmac' => ''
                     ];
                 $data[$ip] = $item;
             }            
@@ -244,7 +244,7 @@ function update_host($item)
     $data_string = json_encode($data);
         
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url . "addresses/" . trim($item['id']) . "/");
+    curl_setopt($ch, CURLOPT_URL, $url . "addresses/" . $item['id'] . "/");
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PATCH");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
@@ -260,7 +260,7 @@ function update_host($item)
     $server_output = curl_exec ($ch);
     
     if( $server_output == FALSE ){
-        printf("Unable to connect to IPAM: %s\n",curl_error($ch));
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
         curl_close ($ch);
         exit(1);
     }    
@@ -270,7 +270,7 @@ function update_host($item)
     $server_json = json_decode($server_output);
     
     if( $server_json->success == false ){
-        printf("Unable to update address %s for %s\n\n",trim($item['id']),$subnet);
+        printf(">>> ERROR: Unable to update address %s for %s\n\n",$item['ip'],$subnet);
         var_dump($server_json); 
         exit(1);
     }     
@@ -306,7 +306,7 @@ function new_host($subnetid,$ip,$item)
     $server_output = curl_exec ($ch);
     
     if( $server_output == FALSE ){
-        printf("Unable to connect to IPAM: %s\n",curl_error($ch));
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
         curl_close ($ch);
         exit(1);
     }    
@@ -316,7 +316,7 @@ function new_host($subnetid,$ip,$item)
     $server_json = json_decode($server_output);    
     
     if( $server_json->success == false ){
-        printf("Unable to create address %s for %s\n\n",$ip,$subnet);
+        printf(">>> ERROR: Unable to create address %s for %s\n\n",$ip,$subnet);
         var_dump($server_json); 
         exit(1);
     }     
@@ -355,7 +355,7 @@ function update_data()
     print_header();    
     
     foreach($data as $ip => $item){
-        if( ($item["id"] != 0 ) && (($item["oldname"] != $item['newname']) || ($item['oldmac'] != $item['newmac'])) ){
+        if( ($item["id"] != 0 ) && ($item['newname'] != "") && ($item['newmac'] != "") && (($item["oldname"] != $item['newname']) || ($item['oldmac'] != $item['newmac'])) ){
             printf("%2s % 5d | %-16s | %-25s | %-25s | %17s | %17s\n",'M',$item["id"],$ip,$item["oldname"],$item['newname'],$item['oldmac'],$item['newmac']);
             if( $testmode  == false ) update_host($item);
         }
