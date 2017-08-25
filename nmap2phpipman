@@ -36,13 +36,8 @@ if( $argv[1] == "-test" ){
     printf("Test  : %s\n",$testmode);
 }
 
-
-
 // access to phpIPAM api
-
-$username = "robot";
-$passwd = "aTfp4yRYeC";
-$url = "https://ipam.ncbr.muni.cz/api/services/";
+include 'phpipam.conf';
 
 // -----------------------------------------------------------------------------
 
@@ -242,8 +237,9 @@ function update_host($item)
 {      
     global $url, $token, $subnet;
 
+    // UPDATE ADDRESS DATA    
     $data = [ "mac" => $item['newmac'],
-              "hostname" => trim($item['newname'])
+              "hostname" => $item['newname']
             ];
     $data_string = json_encode($data);
         
@@ -284,8 +280,9 @@ function update_host($item)
 
 function new_host($subnetid,$ip,$item)
 {      
-    global $url, $token;
+    global $url, $token, $subnet;
 
+    // NEW ADDRESS DATA
     $data = [ "subnetId" => trim($subnetid),
               "ip" => $ip,
               "DHCP" => "NO",
@@ -319,7 +316,7 @@ function new_host($subnetid,$ip,$item)
     $server_json = json_decode($server_output);    
     
     if( $server_json->success == false ){
-        printf("Unable to update address %s for %s\n\n",trim($item['id']),$subnet);
+        printf("Unable to create address %s for %s\n\n",$ip,$subnet);
         var_dump($server_json); 
         exit(1);
     }     
