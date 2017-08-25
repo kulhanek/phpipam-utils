@@ -1,0 +1,391 @@
+#!/usr/bin/env php
+// -----------------------------------------------------------------------------
+// Usage: $ ./nmap2phpipam [-test] <subnet>
+//
+// Example:
+//        # nmap -sP -PR -oX 147.251.90.0.nmap 147.251.90.0/24
+//        $ ./nmap2phpipam -test 147.251.90.0/24
+//        $ ./nmap2phpipam 147.251.90.0/24
+// -----------------------------------------------------------------------------
+
+<?php
+
+// subnet is the first argument
+if( (count($argv) != 2) && (count($argv) != 3) ){
+    printf(">>> ERROR: Subnet not specified!\n\n");
+    exit(1);
+}
+
+if( $argv[1] == "-test" ){
+    $subnet = $argv[2];
+    if( $subnet == "" ) {
+        printf(">>> ERROR: Subnet not specified!\n\n");
+        exit(1);
+    }
+    $testmode = true;
+    printf("SubNet: %s\n",$subnet);
+    printf("Test  : %s\n",$testmode);    
+} else {
+    $subnet = $argv[1];
+    if( $subnet == "" ) {
+        printf(">>> ERROR: Subnet not specified!\n\n");
+        exit(1);
+    }
+    $testmode = false;    
+    printf("SubNet: %s\n",$subnet);
+    printf("Test  : %s\n",$testmode);
+}
+
+
+
+// access to phpIPAM api
+
+$username = "robot";
+$passwd = "aTfp4yRYeC";
+$url = "https://ipam.ncbr.muni.cz/api/services/";
+
+// -----------------------------------------------------------------------------
+
+$subnetid = 0;
+$data = [];
+$token = "";
+$hosts = "";
+$groups = "";
+
+// -----------------------------------------------------------------------------
+
+function parse_nmap()
+{
+    global $data, $nmap;
+
+    // parse nmap file
+    $xml = simplexml_load_file($nmap);
+    if( $xml == false ){
+        printf("Unable to load %s\n",$nmap);
+        exit(1);
+    }
+
+    // extract data
+    foreach($xml->host as $child){
+        if($child->getName() != "host") continue;
+        if($child->status['state'] != 'up') continue;
+        
+        $ip = "";
+        $mac = "";
+        $name = trim($child->hostnames->hostname['name']);
+        foreach($child->address as $addr){
+            if( $addr['addrtype'] == "ipv4" ) $ip = trim($addr['addr']);
+            if( $addr['addrtype'] == "mac" ) $mac = strtolower(trim($addr['addr']));
+        }
+        
+        if( ($ip == "") || ($mac == "") || ($name == "") ) continue;
+        
+        $item = [
+            'id' => '',
+            'oldname' => '',  
+            'newname' => $name,
+            'oldmac' => '',
+            'newmac' => $mac
+            ];
+        $data[$ip] = $item;
+    }
+}
+
+// -----------------------------------------------------------------------------
+
+function init_session()
+{   
+    global $url, $username, $passwd, $token;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "user/");
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_USERPWD, "$username:$passwd");
+    curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf("Unable to connect to IPAM: %s\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $json = json_decode($server_output);
+    
+    $token = $json->data->token;
+    
+    printf("Session token: %s\n",$token);
+}
+
+// -----------------------------------------------------------------------------
+
+function get_subnetid()
+{   
+    global $url, $token, $subnetid, $subnet;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "subnets/cidr/" . $subnet ."/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $headers = [
+        "token: $token"
+    ];
+    
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);    
+
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf("Unable to connect to IPAM: %s\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $subnet_data = json_decode($server_output);
+    
+    if( $subnet_data->success == false ){
+        printf("Unable to get subnet id for %s\n\n",$subnet);
+        var_dump($subnet_data); 
+        exit(1);
+    }    
+    
+    $subnetid = $subnet_data->data[0]->id;
+}
+
+// -----------------------------------------------------------------------------
+
+function get_hosts()
+{   
+    global $url, $token, $subnetid, $subnet, $data;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "subnets/" . $subnetid ."/addresses/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $headers = [
+        "token: $token"
+    ];
+    
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);    
+
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf("Unable to connect to IPAM: %s\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $hosts = json_decode($server_output);
+    
+    if( $hosts->success == false ){
+        printf("Unable to get hosts for %s\n\n",$subnet);
+        var_dump($hosts); 
+        exit(1);
+    }        
+    
+    foreach($hosts->data as $host){
+        $ip = trim($host->ip);
+        $id = $host->id;
+        $mac = $host->mac;        
+        if( $host->hostname == "" ){
+            $name = gethostbyaddr($ip);
+            if( array_key_exists($ip, $data) ){
+                $data[$ip]['id'] = $id;
+                $data[$ip]['newname'] = $name;
+                $data[$ip]['oldmac'] = $mac;
+            } else {
+                $item = [
+                    'id' => $id,
+                    'oldname' => '',                
+                    'newname' => $name,
+                    'oldmac' => '',
+                    'newmac' => $mac
+                    ];
+                $data[$ip] = $item;
+            }              
+        } else {
+            $name = $host->hostname;
+            if( array_key_exists($ip, $data) ){
+                $data[$ip]['id'] = $id;
+                $data[$ip]['oldname'] = $name;
+                $data[$ip]['oldmac'] = $mac;
+            } else {
+                $item = [
+                    'id' => $id,
+                    'oldname' => '',                
+                    'newname' => $name,
+                    'oldmac' => '',
+                    'newmac' => $mac
+                    ];
+                $data[$ip] = $item;
+            }            
+        }             
+
+    }
+    
+}
+
+// -----------------------------------------------------------------------------
+
+function update_host($item)
+{      
+    global $url, $token, $subnet;
+
+    $data = [ "mac" => $item['newmac'],
+              "hostname" => trim($item['newname'])
+            ];
+    $data_string = json_encode($data);
+        
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "addresses/" . trim($item['id']) . "/");
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PATCH");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+    
+    $headers = [
+        "token: $token",
+        "Content-Type: application/json",
+        'Content-Length: ' . strlen($data_string)
+    ];
+    
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);  
+    
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf("Unable to connect to IPAM: %s\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $server_json = json_decode($server_output);
+    
+    if( $server_json->success == false ){
+        printf("Unable to update address %s for %s\n\n",trim($item['id']),$subnet);
+        var_dump($server_json); 
+        exit(1);
+    }     
+}
+
+// -----------------------------------------------------------------------------
+
+function new_host($subnetid,$ip,$item)
+{      
+    global $url, $token;
+
+    $data = [ "subnetId" => trim($subnetid),
+              "ip" => $ip,
+              "DHCP" => "NO",
+            ];
+    $data_string = json_encode($data);
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "addresses/");
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+    
+    $headers = [
+        "token: $token",
+        "Content-Type: application/json",
+        'Content-Length: ' . strlen($data_string)
+    ];
+    
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);  
+    
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf("Unable to connect to IPAM: %s\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $server_json = json_decode($server_output);    
+    
+    if( $server_json->success == false ){
+        printf("Unable to update address %s for %s\n\n",trim($item['id']),$subnet);
+        var_dump($server_json); 
+        exit(1);
+    }     
+}
+
+// -----------------------------------------------------------------------------
+
+function print_header()
+{
+          //   11 | 147.251.84.1     | ukb-cp.mgmt.ics.muni.cz   | ukb-cp.mgmt.ics.muni.cz   | 00:c1:64:c5:bb:40 | 00:c1:64:c5:bb:40
+          
+    printf("\n");          
+    printf("ST   Id           IP               OLD Name                     New Name                  OldMAC              NewMAC       \n");          
+    printf("-- ------ ------------------ --------------------------- --------------------------- ------------------- ------------------\n");
+}
+
+// -----------------------------------------------------------------------------
+
+function print_data()
+{
+    global $data;
+
+    print_header();
+    
+    foreach($data as $ip => $item){
+        printf("%2s % 5d | %-16s | %-25s | %-25s | %17s | %17s\n",'',$item["id"],$ip,$item["oldname"],$item['newname'],$item['oldmac'],$item['newmac']);
+    }
+}
+
+// -----------------------------------------------------------------------------
+
+function update_data()
+{
+    global $data, $subnetid, $testmode;
+
+    print_header();    
+    
+    foreach($data as $ip => $item){
+        if( ($item["id"] != 0 ) && (($item["oldname"] != $item['newname']) || ($item['oldmac'] != $item['newmac'])) ){
+            printf("%2s % 5d | %-16s | %-25s | %-25s | %17s | %17s\n",'M',$item["id"],$ip,$item["oldname"],$item['newname'],$item['oldmac'],$item['newmac']);
+            if( $testmode  == false ) update_host($item);
+        }
+    }
+    
+    foreach($data as $ip => $item){
+        if( ($item["id"] == 0 ) && ($item['newname'] != "") && ($item['newmac'] != "") ){
+            printf("%2s % 5d | %-16s | %-25s | %-25s | %17s | %17s\n",'+',$item["id"],$ip,$item["oldname"],$item['newname'],$item['oldmac'],$item['newmac']);
+            if( $testmode  == false ) new_host($subnetid,$ip,$item);
+        }
+    }    
+}
+
+// -----------------------------------------------------------------------------
+
+init_session();
+get_subnetid();
+
+$subnet_items = explode("/", $subnet);
+$nmap = $subnet_items[0] . ".nmap";
+
+parse_nmap();
+
+get_hosts();
+print_data();
+update_data();
+
+printf("\n");   
+
+?>
