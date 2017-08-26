@@ -68,10 +68,16 @@ function parse_nmap()
         $ip = "";
         $mac = "";
         $name = trim($child->hostnames->hostname['name']);
+        
         foreach($child->address as $addr){
             if( $addr['addrtype'] == "ipv4" ) $ip = trim($addr['addr']);
             if( $addr['addrtype'] == "mac" ) $mac = strtolower(trim($addr['addr']));
         }
+        
+        // if hostname is not provided - try it again
+        if( $name == "" ){
+            $name = gethostbyaddr($ip);
+        }        
         
         if( ($ip == "") || ($mac == "") || ($name == "") ) continue;
         
@@ -84,6 +90,7 @@ function parse_nmap()
             ];
         $data[$ip] = $item;
     }
+    
 }
 
 // -----------------------------------------------------------------------------

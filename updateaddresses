@@ -141,7 +141,10 @@ function update_host($item)
     global $url, $token, $subnet;
 
     // UPDATE ADDRESS DATA    
-    $data = [ "location" => "0"
+    $data = [ "custom_Group" => "",
+              "custom_Admin" => "",
+              "custom_DHCP" => "NO",
+              "custom_Cluster" => "",
             ];
     $data_string = json_encode($data);
         
@@ -168,7 +171,7 @@ function update_host($item)
     }    
 
     curl_close ($ch);
-    
+         
     $server_json = json_decode($server_output);
     
     if( $server_json->success == false ){
@@ -177,7 +180,7 @@ function update_host($item)
         exit(1);
     } 
     
-    //var_dump($server_json);
+
 }
 
 // -----------------------------------------------------------------------------
@@ -200,8 +203,10 @@ function update_data()
     print_header();
     
     foreach($hosts->data as $item){
-        printf("%2s % 5d | %-16s | %-25s\n",'',$item->id,$item->ip,$item->hostname);
-        update_host($item);
+        if( fnmatch("perian*-1.ncbr.muni.cz",$item->hostname) ){
+            printf("%2s % 5d | %-16s | %-25s\n",'',$item->id,$item->ip,$item->hostname);
+            update_host($item);
+        }
     }
 }
 
