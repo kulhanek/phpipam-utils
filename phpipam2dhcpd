@@ -210,6 +210,7 @@ function get_hosts()
         var_dump($hosts); 
         exit(1);
     } 
+    
 }
 
 // -----------------------------------------------------------------------------
@@ -373,17 +374,20 @@ function generate_group($fh,$gname)
         if( ( $item->ip == "" ) || ( $item->hostname == "" ) || ( $item->mac == "" ) || ( $item->custom_DHCP != $gname ) ) continue;
         fprintf($fh,"\n");        
         fprintf($fh,"# --\n");
-        fprintf($fh,"   # Admin   : %s\n",$item->custom_Admin);
-        if( $item->owner != "" ){
-        fprintf($fh,"   # Owner   : %s\n",$item->owner); 
+        fprintf($fh,"   # Admin     : %s\n",$item->custom_Admin);
+        if( $item->custom_User != "" ){
+        fprintf($fh,"   # User      : %s\n",$item->custom_User); 
         }
-        fprintf($fh,"   # Group   : %s\n",$item->custom_Group);
+        fprintf($fh,"   # Group     : %s\n",$item->custom_Group);
         if( $item->custom_Cluster != "" ){        
-        fprintf($fh,"   # Cluster : %s\n",$item->custom_Cluster);
+        fprintf($fh,"   # Cluster   : %s\n",$item->custom_Cluster);
         }
         if( $item->location > 0 ){
-        fprintf($fh,"   # Location: %s\n",get_location_name($item->location));
+        fprintf($fh,"   # Location  : %s\n",get_location_name($item->location));
         }
+        if( $item->port != "" ){
+        fprintf($fh,"   # Plug/port : %s\n",$item->port);
+        }        
         fprintf($fh,"   host %s {\n",$item->hostname);
         fprintf($fh,"       hardware ethernet %s;\n",$item->mac);
         fprintf($fh,"       fixed-address %s;\n",$item->ip );

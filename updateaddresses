@@ -140,12 +140,24 @@ function update_host($item)
 {      
     global $url, $token, $subnet;
 
+//     if( $item->custom_Admin == "Owner" ){
+//         // UPDATE ADDRESS DATA    
+//         $data = [   "owner" => "",
+//                     "custom_Admin" => "User",
+//                     "custom_User" => $item->owner,
+//                 ];
+//     } else {
+//         // UPDATE ADDRESS DATA    
+//         $data = [   "owner" => "",
+//                     "custom_User" => $item->owner,
+//                 ];
+//     } 
+
     // UPDATE ADDRESS DATA    
-    $data = [ "custom_Group" => "",
-              "custom_Admin" => "",
-              "custom_DHCP" => "NO",
-              "custom_Cluster" => "",
+    $data = [   
+                "custom_Admin" => "support@lcc.ncbr.muni.cz",
             ];
+
     $data_string = json_encode($data);
         
     $ch = curl_init();
@@ -203,7 +215,7 @@ function update_data()
     print_header();
     
     foreach($hosts->data as $item){
-        if( fnmatch("perian*-1.ncbr.muni.cz",$item->hostname) ){
+        if( fnmatch("sokar*",$item->hostname) ) { 
             printf("%2s % 5d | %-16s | %-25s\n",'',$item->id,$item->ip,$item->hostname);
             update_host($item);
         }
