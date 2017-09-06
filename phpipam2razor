@@ -260,7 +260,7 @@ function get_location_name($id)
 
 function generate_header()
 {
-    global $url, $subnet_data, $subnet, $admin, $vlan_data;
+    global $url, $subnet_data, $subnet, $vlan_data;
 
     // THERE MUST BE AN EMPTY SPACE BEFORE A COMMENT (#)
     
@@ -269,7 +269,7 @@ function generate_header()
     printf("  # -----------------------------------------------------------------------------\n"); 
     printf("  # data source: %s\n",$url);    
     printf("  # date       : %s\n",date("Y-m-d H:i:s"));  
-    printf("  # admin      : %s\n",$admin);
+    printf("  # admin      : %s\n",$subnet_data->data->custom_Admin);
     printf("  # -----------------------------------------------------------------------------\n");    
     printf("\n");
     printf("  # subnet: %s\n",$subnet);
