@@ -326,6 +326,7 @@ function generate_header($fh)
 
     fprintf($fh,"\n");
     fprintf($fh,"\$ORIGIN %s.\n",$dns_domain);
+    fprintf($fh,"\$TTL 86400\n");
     fprintf($fh,"@   IN  SOA %s.   %s. (\n",$ns_list[0],str_replace("@",".",$subnet_data->data->custom_Admin));
     fprintf($fh,"            %s ; serial\n",date("ymdHi"));
     fprintf($fh,"            21600      ; refresh after 6 hours\n");
@@ -334,15 +335,14 @@ function generate_header($fh)
     fprintf($fh,"            86400 )    ; minimum TTL of 1 day\n");
 
     fprintf($fh,"\n");
+    fprintf($fh,"; zone setup\n");
     foreach($ns_list as $ns){
-        fprintf($fh,"@   IN  NS  %s.\n",$ns);
+        fprintf($fh,"    IN  NS  %s.\n",$ns);
     }
 
     $mx_list = explode(",",$subnet_data->data->custom_MX);
-    
-    fprintf($fh,"\n");
     foreach($mx_list as $mx){
-        fprintf($fh,"@   IN  MX  %s.\n",$mx);
+        fprintf($fh,"    IN  MX  %s.\n",$mx);
     }
 
 }
@@ -358,7 +358,9 @@ function generate_group($fh)
     fprintf($fh,"; vlan  : %d (%s)\n",$vlan_data->data->number, $vlan_data->data->name);
     fprintf($fh,"; admin : %s\n",$subnet_data->data->custom_Admin);
     fprintf($fh,"; -----------------------------------------------------------------------------\n");
-       
+     
+    $mx_list = explode(",",$subnet_data->data->custom_MX);
+  
     foreach($hosts->data as $item){
         if( ( $item->ip == "" ) || ( $item->hostname == "" ) ) continue;
         # process only records from domain
@@ -386,6 +388,10 @@ function generate_group($fh)
         }
         $hn_items = explode(".", $item->hostname);
         fprintf($fh,"%-30s  IN  A  %s\n",$hn_items[0],$item->ip);        
+
+        foreach($mx_list as $mx){
+            fprintf($fh,"                                IN  MX  %s.\n",$mx);
+        }
     }
     
     fprintf($fh,"\n");   

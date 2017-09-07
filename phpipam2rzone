@@ -325,13 +325,11 @@ function generate_header($fh)
     fprintf($fh,"; vlan  : %d (%s)\n",$vlan_data->data->number, $vlan_data->data->name);
     fprintf($fh,"; -----------------------------------------------------------------------------\n");      
 
-
     $ns_list = explode(",",$subnet_data->data->custom_NS);
     if( (count($ns_list) < 1) || ($ns_list[0] == "") ){
         printf(">>> ERROR: NS record is not set for subnet!\n\n");
         exit(1);
     }
-
 
     fprintf($fh,"\n");
     fprintf($fh,"\$ORIGIN %d.%d.%d.in-addr.arpa.\n",$ip_items[2],$ip_items[1],$ip_items[0]);
@@ -342,9 +340,11 @@ function generate_header($fh)
     fprintf($fh,"            3600       ; retry after 1 hour\n");
     fprintf($fh,"            604800     ; expire after 1 week\n");
     fprintf($fh,"            86400 )    ; minimum TTL of 1 day\n");
+
     fprintf($fh,"\n");
+    fprintf($fh,"; zone setup\n");
     foreach($ns_list as $ns){
-        fprintf($fh,"@   IN  NS  %s.\n",$ns);
+        fprintf($fh,"   IN  NS  %s.\n",$ns);
     }
 }
 
