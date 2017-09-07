@@ -357,7 +357,6 @@ function generate_group($fh)
     foreach($hosts->data as $item){
         if( ( $item->ip == "" ) || ( $item->hostname == "" ) ) continue;
         fprintf($fh,"\n");        
-        fprintf($fh,"; --\n");
         if( $item->custom_Admin != "" ){
         fprintf($fh,"; Admin     : %s\n",$item->custom_Admin);
         }
@@ -377,6 +376,7 @@ function generate_group($fh)
         fprintf($fh,"; Plug/port : %s\n",$item->port);
         }
         fprintf($fh,"; IP        : %s\n",$item->ip);
+        fprintf($fh,"; -----------\n");
         $ip_items = explode(".", $item->ip);
         fprintf($fh,"%-3d  IN  PTR  %s.\n",$ip_items[3],$item->hostname);        
     }

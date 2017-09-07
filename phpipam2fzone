@@ -367,7 +367,6 @@ function generate_group($fh)
         if( ! (strpos($item->hostname, $dns_domain) !== false) ) continue;
 
         fprintf($fh,"\n");        
-        fprintf($fh,"; --\n");
         if( $item->custom_Admin != "" ){
         fprintf($fh,"; Admin     : %s\n",$item->custom_Admin);
         }
@@ -386,6 +385,7 @@ function generate_group($fh)
         if( $item->port != "" ){
         fprintf($fh,"; Plug/port : %s\n",$item->port);
         }
+        fprintf($fh,"; -----------\n");
         $hn_items = explode(".", $item->hostname);
         fprintf($fh,"%-30s  IN  A  %s\n",$hn_items[0],$item->ip);        
 
