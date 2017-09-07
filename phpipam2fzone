@@ -35,6 +35,22 @@ $locationsdb = [];
 
 // -----------------------------------------------------------------------------
 
+// stop on any warning
+// https://stackoverflow.com/questions/10520390/stop-script-execution-upon-notice-warning
+
+function errHandle($errNo, $errStr, $errFile, $errLine) {
+    $msg = "$errStr in $errFile on line $errLine";
+    if ($errNo == E_NOTICE || $errNo == E_WARNING) {
+        throw new ErrorException($msg, $errNo);
+    } else {
+        echo $msg;
+    }
+}
+
+set_error_handler('errHandle');
+
+// -----------------------------------------------------------------------------
+
 function init_session()
 {   
     global $url, $username, $passwd, $token;
@@ -296,22 +312,39 @@ function generate_header($fh)
     fprintf($fh,"; data source: %s\n",$url);    
     fprintf($fh,"; date       : %s\n",date("Y-m-d H:i:s"));  
     fprintf($fh,"; admin      : %s\n",$subnet_data->data->custom_Admin);
+    fprintf($fh,"; sec-alerts : %s\n",$subnet_data->data->custom_SecAlerts);
     fprintf($fh,"; -----------------------------------------------------------------------------\n");    
     fprintf($fh,";\n");
     fprintf($fh,"; domain: %s\n",$dns_domain);
     fprintf($fh,"; -----------------------------------------------------------------------------\n");      
 
+    $ns_list = explode(",",$subnet_data->data->custom_NS);
+    if( (count($ns_list) < 1) || ($ns_list[0] == "") ){
+        printf(">>> ERROR: NS record is not set for subnet!\n\n");
+        exit(1);
+    }
+
     fprintf($fh,"\n");
     fprintf($fh,"\$ORIGIN %s.\n",$dns_domain);
-    fprintf($fh,"@   IN  SOA %s.   %s. (\n",$subnet_data->data->custom_ANS,str_replace("@",".",$subnet_data->data->custom_Admin));
+    fprintf($fh,"@   IN  SOA %s.   %s. (\n",$ns_list[0],str_replace("@",".",$subnet_data->data->custom_Admin));
     fprintf($fh,"            %s ; serial\n",date("ymdHi"));
     fprintf($fh,"            21600      ; refresh after 6 hours\n");
     fprintf($fh,"            3600       ; retry after 1 hour\n");
     fprintf($fh,"            604800     ; expire after 1 week\n");
     fprintf($fh,"            86400 )    ; minimum TTL of 1 day\n");
 
-    fprintf($fh,";\n");
-    fprintf($fh,"@   IN  NS  %s.\n",$subnet_data->data->custom_ANS);
+    fprintf($fh,"\n");
+    foreach($ns_list as $ns){
+        fprintf($fh,"@   IN  NS  %s.\n",$ns);
+    }
+
+    $mx_list = explode(",",$subnet_data->data->custom_MX);
+    
+    fprintf($fh,"\n");
+    foreach($mx_list as $mx){
+        fprintf($fh,"@   IN  MX  %s.\n",$mx);
+    }
+
 }
 
 // -----------------------------------------------------------------------------

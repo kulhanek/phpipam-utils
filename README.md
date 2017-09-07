@@ -40,5 +40,7 @@ $ ./updateaddresses 147.251.90.0/24
 phpipam2dhcpd generate configuration file for the ISC DHCP server. The utilitity requires read access for both API and user. Typical usage:
 
 ```bash
-$ ./phpipam2dhcpd 147.251.90.0/24
+$ ./phpipam2dhcpd 147.251.90.0/24                      # create 147.251.90.0.conf file for isc-dhcp-server
 ```
+
+

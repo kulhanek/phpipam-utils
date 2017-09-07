@@ -41,6 +41,22 @@ $locationsdb = [];
 
 // -----------------------------------------------------------------------------
 
+// stop on any warning
+// https://stackoverflow.com/questions/10520390/stop-script-execution-upon-notice-warning
+
+function errHandle($errNo, $errStr, $errFile, $errLine) {
+    $msg = "$errStr in $errFile on line $errLine";
+    if ($errNo == E_NOTICE || $errNo == E_WARNING) {
+        throw new ErrorException($msg, $errNo);
+    } else {
+        echo $msg;
+    }
+}
+
+set_error_handler('errHandle');
+
+// -----------------------------------------------------------------------------
+
 function init_session()
 {   
     global $url, $username, $passwd, $token;
@@ -303,6 +319,7 @@ function generate_header($fh)
     fprintf($fh,"# data source: %s\n",$url);    
     fprintf($fh,"# date       : %s\n",date("Y-m-d H:i:s"));  
     fprintf($fh,"# admin      : %s\n",$subnet_data->data->custom_Admin);
+    fprintf($fh,"# sec-alerts : %s\n",$subnet_data->data->custom_SecAlerts);
     fprintf($fh,"# -----------------------------------------------------------------------------\n");    
     fprintf($fh,"\n");
     fprintf($fh,"# subnet: %s\n",$subnet);
