@@ -79,7 +79,7 @@ function init_session()
     curl_close ($ch);
     
     $json = json_decode($server_output);
-    
+
     $token = $json->data->token;
     
     //printf("Session token: %s\n",$token);
@@ -297,7 +297,7 @@ function print_data()
     print_header();
     
     foreach($hosts->data as $item){
-        if( ( $item->ip != "" ) && ( $item->hostname != "" ) && ( $item->mac != "" ) && ( $item->custom_DHCP != "NO" ) ){
+        if( ( $item->ip != "" ) && ( $item->hostname != "" ) && ( $item->mac != "" ) && ( $item->custom_DHCP != "NO" ) && ( $item->custom_DHCP != "POOL" ) ){
             printf("%2s % 5d | %-16s | %-25s | %17s | %17s\n",'',$item->id,$item->ip,$item->hostname,$item->mac,$item->custom_DHCP);
             $dhcp_classes[$item->custom_DHCP] = $item->custom_DHCP;
         }
@@ -319,6 +319,7 @@ function generate_header($fh)
     fprintf($fh,"# data source: %s\n",$url);    
     fprintf($fh,"# date       : %s\n",date("Y-m-d H:i:s"));  
     fprintf($fh,"# admin      : %s\n",$subnet_data->data->custom_Admin);
+    fprintf($fh,"# tech admin : %s\n",$subnet_data->data->custom_TechAdmin);
     fprintf($fh,"# sec-alerts : %s\n",$subnet_data->data->custom_SecAlerts);
     fprintf($fh,"# -----------------------------------------------------------------------------\n");    
     fprintf($fh,"\n");
@@ -337,7 +338,40 @@ function generate_header($fh)
     fprintf($fh,"   option routers             %s;\n",$subnet_data->data->calculation->{'Min host IP'});
     fprintf($fh,"   option subnet-mask         %s;\n",$subnet_data->data->calculation->{'Subnet netmask'});    
     fprintf($fh,"   option domain-name-servers 147.251.4.33, 147.251.6.10;\n");
-    fprintf($fh,"   option domain-name         \"ncbr.muni.cz\";\n");
+    fprintf($fh,"   option domain-name         %s;\n",$subnet_data->data->custom_Domain);
+
+
+    // detect DHCP pool
+    global $hosts;
+   
+    $first = true;
+    foreach($hosts->data as $item){
+        if( ( $item->ip != "" ) && ( $item->mac == "" ) && ( $item->custom_DHCP == "POOL" ) ){
+            $pool[] = $item->ip;
+            $dp = explode(".",$item->ip);
+            $num = 0;
+            if( count($dp) == 4 ){
+                $num = $dp[3];
+            }
+            if( $num != 0 ){
+                if( $first == true ){
+                    $prev = $num;
+                } else if( $prev + 1 != $num ){
+                    printf(">>> ERROR: Discontinuous pool!\n\n");
+                    exit(1); 
+                }
+            }
+        }
+    }
+
+    if( count($pool) > 0 ){
+    fprintf($fh,"\n");
+    fprintf($fh,"   # DHCP pool\n");
+    fprintf($fh,"   pool {\n");
+    fprintf($fh,"      range %s %s\n",$pool[0],$pool[count($pool)-1]);
+    fprintf($fh,"   }\n");
+    }
+    
     fprintf($fh,"}\n");   
 }
 
@@ -345,7 +379,8 @@ function generate_header($fh)
 
 function generate_group_specific($fh,$gname)
 {
-    if( $gname == "HWMON" ){
+    
+    if( $gname == "PUPPET" ){
         fprintf($fh,"\n");    
         fprintf($fh,"   allow  bootp;\n"); 
         fprintf($fh,"\n");
@@ -354,20 +389,7 @@ function generate_group_specific($fh,$gname)
         fprintf($fh,"   } else {\n");
         fprintf($fh,"       filename \"undionly.kpxe\";\n");
         fprintf($fh,"   }\n");
-        fprintf($fh,"   next-server 147.251.84.15;\n");       
-        return;
-    }
-    
-    if( $gname == "PUPPET" ){
-        fprintf($fh,"\n");    
-        fprintf($fh,"    allow  bootp;\n"); 
-        fprintf($fh,"\n");
-        fprintf($fh,"   if exists user-class and option user-class = \"iPXE\" {\n");
-        fprintf($fh,"       filename \"bootstrap.ipxe\";\n");
-        fprintf($fh,"   } else {\n");
-        fprintf($fh,"       filename \"undionly.kpxe\";\n");
-        fprintf($fh,"   }\n");
-        fprintf($fh,"   next-server 147.251.84.53;\n"); 
+        fprintf($fh,"   next-server 147.251.84.53;   # puppet.ncbr.muni.cz\n"); 
         return;
     } 
     
@@ -393,25 +415,26 @@ function generate_group($fh,$gname)
     foreach($hosts->data as $item){
         if( ( $item->ip == "" ) || ( $item->hostname == "" ) || ( $item->mac == "" ) || ( $item->custom_DHCP != $gname ) ) continue;
         fprintf($fh,"\n");        
-        fprintf($fh,"# --\n");
-        fprintf($fh,"   # Admin     : %s\n",$item->custom_Admin);
-        if( $item->custom_User != "" ){
-        fprintf($fh,"   # User      : %s\n",$item->custom_User); 
-        }
-        fprintf($fh,"   # Group     : %s\n",$item->custom_Group);
-        if( $item->custom_Cluster != "" ){        
-        fprintf($fh,"   # Cluster   : %s\n",$item->custom_Cluster);
-        }
-        if( $item->location > 0 ){
-        fprintf($fh,"   # Location  : %s\n",get_location_name($item->location));
-        }
-        if( $item->port != "" ){
-        fprintf($fh,"   # Plug/port : %s\n",$item->port);
-        }        
+        fprintf($fh,"# -----\n");
         fprintf($fh,"   host %s {\n",$item->hostname);
         fprintf($fh,"       hardware ethernet %s;\n",$item->mac);
-        fprintf($fh,"       fixed-address %s;\n",$item->ip );
-        fprintf($fh,"       option host-name \"%s\";\n",explode(".",$item->hostname)[0]);
+        fprintf($fh,"       fixed-address     %s;\n",$item->ip );
+        fprintf($fh,"       option host-name  \"%s\";\n",explode(".",$item->hostname)[0]);
+        if( $item->location > 0 ){
+        fprintf($fh,"       # Location        %s\n",get_location_name($item->location));
+        }
+        if( $item->port != "" ){
+        fprintf($fh,"       # Plug/port       %s\n",$item->port);
+        }
+        fprintf($fh,"       # Admin           %s\n",$item->custom_Admin);
+        if( $item->custom_User != "" ){
+        fprintf($fh,"       # User            %s\n",$item->custom_User);
+        }
+        fprintf($fh,"       # Group           %s\n",$item->custom_Group);
+        if( $item->custom_Cluster != "" ){
+        fprintf($fh,"       # Cluster         %s\n",$item->custom_Cluster);
+        }
+
         fprintf($fh,"   }\n");
     }
     
