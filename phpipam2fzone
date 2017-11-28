@@ -12,6 +12,11 @@
 
 printf("\n");
 
+if( $argc == 1 ){
+    printf(">>> ERROR: No subnet specified!\n\n");
+    exit(1);
+} 
+
 $subnet = $argv[1];
 if( $subnet == "" ) {
     printf(">>> ERROR: Master subnet not specified!\n\n");
@@ -109,7 +114,7 @@ function get_subnetid()
     $subnet_data = json_decode($server_output);
     
     if( $subnet_data->success == false ){
-        printf(">>> ERROR: Unable to get subnet id for %s\n\n",$subnet);
+        printf("\n>>> ERROR: Unable to get subnet id for %s!\n\n",$subnet);
         var_dump($subnet_data); 
         exit(1);
     }   
@@ -147,7 +152,7 @@ function get_subnet()
     $subnet_data = json_decode($server_output);
         
     if( $subnet_data->success == false ){
-        printf(">>> ERROR: Unable to get hosts for %s\n\n",$subnet);
+        printf(">>> ERROR: Unable to get subnet info for %s\n\n",$subnet);
         var_dump($subnet_data); 
         exit(1);
     }
@@ -159,7 +164,12 @@ function get_subnet()
 function get_vlan()
 {   
     global $url, $token, $subnet_data, $subnet, $vlan_data;
-    
+   
+    if( $subnet_data->data->vlanId == 0 ){
+        printf("\n>>> ERROR: No VLAN defined for %s subnet!\n\n",$subnet);
+        exit(1);
+    }
+ 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url . "vlans/" . $subnet_data->data->vlanId ."/");
     curl_setopt($ch, CURLOPT_HTTPGET, true);
@@ -184,7 +194,7 @@ function get_vlan()
     $vlan_data = json_decode($server_output);
         
     if( $vlan_data->success == false ){
-        printf(">>> ERROR: Unable to get hosts for %s\n\n",$subnet);
+        printf(">>> ERROR: Unable to get vlan for %s\n\n",$subnet);
         var_dump($vlan_data); 
         exit(1);
     } 
@@ -311,8 +321,12 @@ function generate_header($fh)
     fprintf($fh,"; -----------------------------------------------------------------------------\n"); 
     fprintf($fh,"; data source: %s\n",$url);    
     fprintf($fh,"; date       : %s\n",date("Y-m-d H:i:s"));  
+    fprintf($fh,"; subnet     : %s\n",$subnet);
     fprintf($fh,"; admin      : %s\n",$subnet_data->data->custom_Admin);
+    fprintf($fh,"; tech admin : %s\n",$subnet_data->data->custom_TechAdmin);
+    if( $subnet_data->data->custom_SecAlerts != "" ){
     fprintf($fh,"; sec-alerts : %s\n",$subnet_data->data->custom_SecAlerts);
+    }
     fprintf($fh,"; -----------------------------------------------------------------------------\n");    
     fprintf($fh,";\n");
     fprintf($fh,"; domain: %s\n",$dns_domain);
@@ -327,7 +341,7 @@ function generate_header($fh)
     fprintf($fh,"\n");
     fprintf($fh,"\$ORIGIN %s.\n",$dns_domain);
     fprintf($fh,"\$TTL 86400\n");
-    fprintf($fh,"@   IN  SOA %s.   %s. (\n",$ns_list[0],str_replace("@",".",$subnet_data->data->custom_Admin));
+    fprintf($fh,"@   IN  SOA %s.   %s. (\n",$ns_list[0],str_replace("@",".",$subnet_data->data->custom_TechAdmin));
     fprintf($fh,"            %s ; serial\n",date("ymdHi"));
     fprintf($fh,"            21600      ; refresh after 6 hours\n");
     fprintf($fh,"            3600       ; retry after 1 hour\n");
@@ -354,9 +368,11 @@ function generate_group($fh)
     global $hosts, $dns_domain, $subnet, $vlan_data, $subnet_data;
 
     fprintf($fh,"\n");
-    fprintf($fh,"; subnet: %s\n",$subnet);
-    fprintf($fh,"; vlan  : %d (%s)\n",$vlan_data->data->number, $vlan_data->data->name);
-    fprintf($fh,"; admin : %s\n",$subnet_data->data->custom_Admin);
+    fprintf($fh,"; subnet     : %s\n",$subnet);
+    fprintf($fh,"; vlan       : %d (%s)\n",$vlan_data->data->number, $vlan_data->data->name);
+    fprintf($fh,"; admin      : %s\n",$subnet_data->data->custom_Admin);
+    fprintf($fh,"; tech admin : %s\n",$subnet_data->data->custom_TechAdmin);
+    fprintf($fh,"; sec-alerts : %s\n",$subnet_data->data->custom_SecAlerts);
     fprintf($fh,"; -----------------------------------------------------------------------------\n");
      
     $mx_list = explode(",",$subnet_data->data->custom_MX);
@@ -366,31 +382,27 @@ function generate_group($fh)
         # process only records from domain
         if( ! (strpos($item->hostname, $dns_domain) !== false) ) continue;
 
-        fprintf($fh,"\n");        
-        if( $item->custom_Admin != "" ){
-        fprintf($fh,"; Admin     : %s\n",$item->custom_Admin);
-        }
-        if( $item->custom_User != "" ){
-        fprintf($fh,"; User      : %s\n",$item->custom_User); 
-        }
-        if( $item->custom_Group != "" ){
-        fprintf($fh,"; Group     : %s\n",$item->custom_Group);
-        }
-        if( $item->custom_Cluster != "" ){        
-        fprintf($fh,"; Cluster   : %s\n",$item->custom_Cluster);
-        }
+        fprintf($fh,"\n"); 
+        $hn_items = explode(".", $item->hostname);      
+        fprintf($fh,"%-30s  IN  A  %s\n",$hn_items[0],$item->ip);
+
         if( $item->location > 0 ){
-        fprintf($fh,"; Location  : %s\n",get_location_name($item->location));
+        fprintf($fh,"  ; Location:  %s\n",get_location_name($item->location));
         }
         if( $item->port != "" ){
-        fprintf($fh,"; Plug/port : %s\n",$item->port);
+        fprintf($fh,"  ; Plug/port: %s\n",$item->port);
+        } 
+        if( $item->custom_Admin != "" ){
+        fprintf($fh,"  ; Admin:     %s\n",$item->custom_Admin);
         }
-        fprintf($fh,"; -----------\n");
-        $hn_items = explode(".", $item->hostname);
-        fprintf($fh,"%-30s  IN  A  %s\n",$hn_items[0],$item->ip);        
-
-        foreach($mx_list as $mx){
-            fprintf($fh,"                                IN  MX  %s.\n",$mx);
+        if( $item->custom_User != "" ){
+        fprintf($fh,"  ; User:      %s\n",$item->custom_User); 
+        }
+        if( $item->custom_Group != "" ){
+        fprintf($fh,"  ; Group:     %s\n",$item->custom_Group);
+        }
+        if( $item->custom_Cluster != "" ){        
+        fprintf($fh,"  ; Cluster:   %s\n",$item->custom_Cluster);
         }
     }
     
@@ -402,9 +414,6 @@ function generate_group($fh)
 init_session();
 get_subnetid();
 get_subnet();
-get_vlan();
-get_hosts();
-print_data();
 
 $dns_domain = $subnet_data->data->custom_Domain;
 
@@ -420,9 +429,14 @@ if( $fh == false ){
 }
 
 generate_header($fh);
-generate_group($fh);
 
-for($i=2;$i<$argc;$i++){
+if( $argc == 2 ){
+    $start = 1;
+} else {
+    $start = 2;
+}
+
+for($i=$start;$i<$argc;$i++){
     $subnet = $argv[$i];
     if( $subnet == "" ) {
         printf(">>> ERROR: Master subnet not specified!\n\n");

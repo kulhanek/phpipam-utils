@@ -164,6 +164,11 @@ function get_subnet()
 function get_vlan()
 {   
     global $url, $token, $subnet_data, $subnet, $vlan_data;
+
+    if( $subnet_data->data->vlanId == 0 ){
+        printf("\n>>> ERROR: No VLAN defined for %s subnet!\n\n",$subnet);
+        exit(1);
+    }
     
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url . "vlans/" . $subnet_data->data->vlanId ."/");
@@ -421,18 +426,18 @@ function generate_group($fh,$gname)
         fprintf($fh,"       fixed-address     %s;\n",$item->ip );
         fprintf($fh,"       option host-name  \"%s\";\n",explode(".",$item->hostname)[0]);
         if( $item->location > 0 ){
-        fprintf($fh,"       # Location        %s\n",get_location_name($item->location));
+        fprintf($fh,"       # Location:       %s\n",get_location_name($item->location));
         }
         if( $item->port != "" ){
-        fprintf($fh,"       # Plug/port       %s\n",$item->port);
+        fprintf($fh,"       # Plug/port:      %s\n",$item->port);
         }
-        fprintf($fh,"       # Admin           %s\n",$item->custom_Admin);
+        fprintf($fh,"       # Admin:          %s\n",$item->custom_Admin);
         if( $item->custom_User != "" ){
-        fprintf($fh,"       # User            %s\n",$item->custom_User);
+        fprintf($fh,"       # User:           %s\n",$item->custom_User);
         }
-        fprintf($fh,"       # Group           %s\n",$item->custom_Group);
+        fprintf($fh,"       # Group:          %s\n",$item->custom_Group);
         if( $item->custom_Cluster != "" ){
-        fprintf($fh,"       # Cluster         %s\n",$item->custom_Cluster);
+        fprintf($fh,"       # Cluster:        %s\n",$item->custom_Cluster);
         }
 
         fprintf($fh,"   }\n");

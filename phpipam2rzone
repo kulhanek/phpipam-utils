@@ -12,15 +12,15 @@
 
 printf("\n");
 
-// subnet is the first argument
-if( count($argv) != 2 ){
-    printf(">>> ERROR: Subnet not specified!\n\n");
+if( $argc == 1 ){
+    printf(">>> ERROR: No subnet specified!\n\n");
     exit(1);
 }
 
+// subnet is the first argument
 $subnet = $argv[1];
 if( $subnet == "" ) {
-    printf(">>> ERROR: Subnet not specified!\n\n");
+    printf(">>> ERROR: Master subnet not specified!\n\n");
     exit(1);
 }
 
@@ -115,7 +115,7 @@ function get_subnetid()
     $subnet_data = json_decode($server_output);
     
     if( $subnet_data->success == false ){
-        printf(">>> ERROR: Unable to get subnet id for %s\n\n",$subnet);
+        printf("\n>>> ERROR: Unable to get subnet id for %s!\n\n",$subnet);
         var_dump($subnet_data); 
         exit(1);
     }   
@@ -165,7 +165,12 @@ function get_subnet()
 function get_vlan()
 {   
     global $url, $token, $subnet_data, $subnet, $vlan_data;
-    
+   
+    if( $subnet_data->data->vlanId == 0 ){
+        printf("\n>>> ERROR: No VLAN defined for %s subnet!\n\n",$subnet);
+        exit(1);
+    }
+ 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url . "vlans/" . $subnet_data->data->vlanId ."/");
     curl_setopt($ch, CURLOPT_HTTPGET, true);
@@ -317,13 +322,14 @@ function generate_header($fh)
     fprintf($fh,"; -----------------------------------------------------------------------------\n"); 
     fprintf($fh,"; data source: %s\n",$url);    
     fprintf($fh,"; date       : %s\n",date("Y-m-d H:i:s"));  
+    fprintf($fh,"; subnet     : %s\n",$subnet);
     fprintf($fh,"; admin      : %s\n",$subnet_data->data->custom_Admin);
+    fprintf($fh,"; tech admin : %s\n",$subnet_data->data->custom_TechAdmin);
+    if( $subnet_data->data->custom_SecAlerts != "" ){
     fprintf($fh,"; sec-alerts : %s\n",$subnet_data->data->custom_SecAlerts);
+    }
     fprintf($fh,"; -----------------------------------------------------------------------------\n");    
     fprintf($fh,";\n");
-    fprintf($fh,"; subnet: %s\n",$subnet);
-    fprintf($fh,"; vlan  : %d (%s)\n",$vlan_data->data->number, $vlan_data->data->name);
-    fprintf($fh,"; -----------------------------------------------------------------------------\n");      
 
     $ns_list = explode(",",$subnet_data->data->custom_NS);
     if( (count($ns_list) < 1) || ($ns_list[0] == "") ){
@@ -352,33 +358,40 @@ function generate_header($fh)
 
 function generate_group($fh)
 {
-    global $hosts;
+    global $hosts, $dns_domain, $subnet, $vlan_data, $subnet_data;
+
+    fprintf($fh,"\n");
+    fprintf($fh,"; subnet     : %s\n",$subnet);
+    fprintf($fh,"; vlan       : %d (%s)\n",$vlan_data->data->number, $vlan_data->data->name);
+    fprintf($fh,"; admin      : %s\n",$subnet_data->data->custom_Admin);
+    fprintf($fh,"; tech admin : %s\n",$subnet_data->data->custom_TechAdmin);
+    fprintf($fh,"; sec-alerts : %s\n",$subnet_data->data->custom_SecAlerts);
+    fprintf($fh,"; -----------------------------------------------------------------------------\n");
         
     foreach($hosts->data as $item){
         if( ( $item->ip == "" ) || ( $item->hostname == "" ) ) continue;
-        fprintf($fh,"\n");        
-        if( $item->custom_Admin != "" ){
-        fprintf($fh,"; Admin     : %s\n",$item->custom_Admin);
-        }
-        if( $item->custom_User != "" ){
-        fprintf($fh,"; User      : %s\n",$item->custom_User); 
-        }
-        if( $item->custom_Group != "" ){
-        fprintf($fh,"; Group     : %s\n",$item->custom_Group);
-        }
-        if( $item->custom_Cluster != "" ){        
-        fprintf($fh,"; Cluster   : %s\n",$item->custom_Cluster);
-        }
+        fprintf($fh,"\n");
+        $ip_items = explode(".", $item->ip);
+        fprintf($fh,"%-3d  IN  PTR  %s.\n",$ip_items[3],$item->hostname); 
         if( $item->location > 0 ){
-        fprintf($fh,"; Location  : %s\n",get_location_name($item->location));
+        fprintf($fh,"   ; Location:  %s\n",get_location_name($item->location));
         }
         if( $item->port != "" ){
-        fprintf($fh,"; Plug/port : %s\n",$item->port);
+        fprintf($fh,"   ; Plug/port: %s\n",$item->port);
+        }       
+        if( $item->custom_Admin != "" ){
+        fprintf($fh,"   ; Admin:     %s\n",$item->custom_Admin);
         }
-        fprintf($fh,"; IP        : %s\n",$item->ip);
-        fprintf($fh,"; -----------\n");
-        $ip_items = explode(".", $item->ip);
-        fprintf($fh,"%-3d  IN  PTR  %s.\n",$ip_items[3],$item->hostname);        
+        if( $item->custom_User != "" ){
+        fprintf($fh,"   ; User:      %s\n",$item->custom_User); 
+        }
+        if( $item->custom_Group != "" ){
+        fprintf($fh,"   ; Group:     %s\n",$item->custom_Group);
+        }
+        if( $item->custom_Cluster != "" ){        
+        fprintf($fh,"   ; Cluster:   %s\n",$item->custom_Cluster);
+        }
+        fprintf($fh,"   ; IP:        %s\n",$item->ip);
     }
     
     fprintf($fh,"\n");   
@@ -389,15 +402,13 @@ function generate_group($fh)
 init_session();
 get_subnetid();
 get_subnet();
-get_vlan();
-get_hosts();
-print_data();
+$dns_domain = $subnet_data->data->custom_Domain;
 
 $subnet_items = explode("/", $subnet);
 $ip_items = explode(".", $subnet_items[0]);
 
 if( $ip_items[3] != 0 ){
-    printf(">>> ERROR: Last digit in IP address of subnet must be zero!");
+    printf(">>> ERROR: Last digit in IP address of subnet must be zero!\n\n");
     exit(1);
 }
 
@@ -413,7 +424,30 @@ if( $fh == false ){
 }
 
 generate_header($fh);
-generate_group($fh);
+
+if( $argc == 2 ){
+    $start = 1;
+} else {
+    $start = 2;
+}
+
+for($i=$start;$i<$argc;$i++){
+    $subnet = $argv[$i];
+    if( $subnet == "" ) {
+        printf(">>> ERROR: Master subnet not specified!\n\n");
+        exit(1);
+    }
+    get_subnetid();
+    get_subnet();
+    get_vlan();
+    get_hosts();
+    print_data();
+    if( $subnet_data->data->custom_Domain != $dns_domain ){
+        printf(">>> ERROR: Subnet %s is from different domain!\n\n",$subnet);
+        exit(1);
+    }
+    generate_group($fh);
+}
 
 fclose($fh);
 
