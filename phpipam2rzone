@@ -329,7 +329,6 @@ function generate_header($fh)
     fprintf($fh,"; sec-alerts : %s\n",$subnet_data->data->custom_SecAlerts);
     }
     fprintf($fh,"; -----------------------------------------------------------------------------\n");    
-    fprintf($fh,";\n");
 
     $ns_list = explode(",",$subnet_data->data->custom_NS);
     if( (count($ns_list) < 1) || ($ns_list[0] == "") ){
