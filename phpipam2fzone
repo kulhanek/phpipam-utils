@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 // -----------------------------------------------------------------------------
-// Usage: $ ./phpipam2fzone [--no-header] <mastersubnet> [<subnet> ...]
+// Usage: $ ./phpipam2fzone [--no-header] <subnet> [<subnet> ...]
 //
 // Example:
 //        $ ./phpipam2fzone 147.251.90.0/24
@@ -503,13 +503,7 @@ if( $print_header ){
     generate_header($fh);
 }
 
-if( $nargs == 2 ){
-    $start = $arg_start;
-} else {
-    $start = $arg_start+1;
-}
-
-for($i=$start;$i<$argc;$i++){
+for($i=$arg_start;$i<$argc;$i++){
     $subnet = $argv[$i];
     if( $subnet == "" ) {
         printf(">>> ERROR: Child subnet not specified!\n\n");
