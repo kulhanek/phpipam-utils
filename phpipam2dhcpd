@@ -390,7 +390,7 @@ function generate_header($fh)
     fprintf($fh,"   option routers             %s;\n",$subnet_data->data->calculation->{'Min host IP'});
     fprintf($fh,"   option subnet-mask         %s;\n",$subnet_data->data->calculation->{'Subnet netmask'});    
     fprintf($fh,"   option domain-name-servers 147.251.4.33, 147.251.6.10;\n");
-    fprintf($fh,"   option domain-name         %s;\n",$subnet_data->data->custom_Domain);
+    fprintf($fh,"   option domain-name         \"%s\";\n",$subnet_data->data->custom_Domain);
 
 
     // detect DHCP pool
