@@ -1,0 +1,343 @@
+#!/usr/bin/env php
+<?php
+// -----------------------------------------------------------------------------
+// Usage: $ ./phpipam2ports <device>
+//
+// Example:
+//        $ ./phpipam2 2S027SW2A
+//
+// Output file:
+//        2S027SW2A.ports
+// -----------------------------------------------------------------------------
+
+printf("\n");
+
+if( $argc < 2 ){
+    printf(">>> ERROR: No device name specified!\n\n");
+    exit(1);
+} 
+
+$devname = $argv[1];
+if( $devname == "" ) {
+    printf(">>> ERROR: No device name specified!\n\n");
+    exit(1);
+}
+
+printf("Device name: %s\n",$devname);
+
+// access to phpIPAM api
+include 'phpipam.conf';
+
+// -----------------------------------------------------------------------------
+
+$data = [];
+$token = "";
+$device_data = "";
+
+// -----------------------------------------------------------------------------
+
+// stop on any warning
+// https://stackoverflow.com/questions/10520390/stop-script-execution-upon-notice-warning
+
+function errHandle($errNo, $errStr, $errFile, $errLine) {
+    $msg = "$errStr in $errFile on line $errLine";
+    if ($errNo == E_NOTICE || $errNo == E_WARNING) {
+        throw new ErrorException($msg, $errNo);
+    } else {
+        echo $msg;
+    }
+}
+
+set_error_handler('errHandle');
+
+// -----------------------------------------------------------------------------
+
+function init_session()
+{   
+    global $url, $username, $passwd, $token;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "user/");
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_USERPWD, "$username:$passwd");
+    curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $json = json_decode($server_output);
+    
+    $token = $json->data->token;
+    
+    //printf("Session token: %s\n",$token);
+}
+
+// -----------------------------------------------------------------------------
+
+function get_devices()
+{   
+    global $url, $token, $devices;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "devices/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $headers = [
+        "token: $token"
+    ];
+    
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);    
+
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $devices = json_decode($server_output);
+    
+    if( $devices->success == false ){
+        printf("\n>>> ERROR: Unable to devices!\n\n");
+        var_dump($devices); 
+        exit(1);
+    } 
+    // var_dump($devices);  
+}
+
+// -----------------------------------------------------------------------------
+
+function get_hosts($devid)
+{
+    global $url, $token, $hosts;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "devices/" . $devid ."/addresses/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $headers = [
+        "token: $token"
+    ];
+
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+    $server_output = curl_exec ($ch);
+
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }
+
+    curl_close ($ch);
+
+    $hosts = json_decode($server_output);
+
+    if( $hosts->success == false ){
+        printf(">>> ERROR: Unable to get hosts for device %d\n\n",$devid);
+        var_dump($hosts);
+        exit(1);
+    }
+
+}
+
+// -----------------------------------------------------------------------------
+
+function get_subnet($subnetid)
+{ 
+    global $url, $token, $subnet_data;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "subnets/" . $subnetid ."/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $headers = [
+        "token: $token"
+    ];
+
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+    $server_output = curl_exec ($ch);
+
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }
+
+    curl_close ($ch);
+
+    $subnet_data = json_decode($server_output);
+
+    if( $subnet_data->success == false ){
+        printf(">>> ERROR: Unable to get subnet info for %d\n\n",$subnetid);
+        var_dump($subnet_data);
+        exit(1);
+    }
+
+}
+
+// -----------------------------------------------------------------------------
+
+function get_vlan($vlanid)
+{
+    global $url, $token, $vlan_data;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "vlans/" . $vlanid ."/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $headers = [
+        "token: $token"
+    ];
+
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+    $server_output = curl_exec ($ch);
+
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }
+
+    curl_close ($ch);
+
+    $vlan_data = json_decode($server_output);
+
+    if( $vlan_data->success == false ){
+        printf(">>> ERROR: Unable to get vlan for %d\n\n",$vlanid);
+        var_dump($vlan_data);
+        exit(1);
+    }
+}
+
+// -----------------------------------------------------------------------------
+
+function get_location_name($id)
+{ 
+    global $url, $token;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "tools/locations/" . $id . "/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $headers = [
+        "token: $token"
+    ];
+
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+    $server_output = curl_exec ($ch);
+
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }
+
+    curl_close ($ch);
+
+    $loc_data = json_decode($server_output);
+
+    if( $loc_data->success == false ){
+        printf(">>> ERROR: Unable to get location for %d\n\n",$id);
+        var_dump($loc_data);
+        exit(1);
+    }
+
+    $name = $loc_data->data->name;
+    return($name);
+}
+
+// -----------------------------------------------------------------------------
+
+function generate_header($fh)
+{
+    global $device,$url;
+
+    fprintf($fh,"# -----------------------------------------------------------------------------\n");
+    fprintf($fh,"# GENERATED BY phpipam2ports - DO NOT EDIT\n");
+    fprintf($fh,"# -----------------------------------------------------------------------------\n");
+    fprintf($fh,"# data source: %s\n",$url);
+    fprintf($fh,"# date       : %s\n",date("Y-m-d H:i:s"));
+    fprintf($fh,"\n");
+    fprintf($fh,"# device name: %s\n",$device->hostname);
+    fprintf($fh,"# description: %s\n",str_replace("\r",'',str_replace("\n", ' ', $device->description)));
+    fprintf($fh,"# location:    %s\n",get_location_name($device->location));
+
+    fprintf($fh,"\n");
+    fprintf($fh,"# Port      VLAN  Description\n");
+    fprintf($fh,"# -------- ------ -------------------------------------------------------------\n");
+}
+
+// -----------------------------------------------------------------------------
+
+function generate_ports($fh)
+{
+    global $hosts, $subnet_data, $vlan_data;
+
+    foreach($hosts->data as $host){
+        if( $host->port == "" ) continue;
+        get_subnet($host->subnetId);
+        if( $subnet_data->data->vlanId == 0 ) continue;
+        get_vlan($subnet_data->data->vlanId);        
+        $desc = sprintf("%s, Group: %s",$host->hostname,$host->custom_Group);
+        fprintf($fh,"%-10s %-6d %s\n",$host->port,$vlan_data->data->number,$desc);
+    }
+}
+
+// -----------------------------------------------------------------------------
+
+init_session();
+get_devices();
+
+$device = "";
+
+// find device
+foreach($devices->data as $item){
+    if( $item->hostname == $devname ){
+        $device = $item;
+        break;
+    }
+}
+
+if( $device == "" ){
+    printf("\n>>> ERROR: Unable to locate device %s!\n\n",$devname);
+    exit(1);
+}
+
+$devname_conf = sprintf("%s.ports",$devname);
+
+printf("\n");
+printf("Generating port configuration: %s\n",$devname_conf);
+$fh = fopen($devname_conf,"w");
+if( $fh == false ){
+    printf(">>> ERROR: Unable to open %s for writing!\n\n",$devname_conf);
+    exit(1);
+}
+
+generate_header($fh);
+get_hosts($device->id);
+generate_ports($fh);
+fclose($fh);
+
+printf("Done!\n\n");
+
+?>

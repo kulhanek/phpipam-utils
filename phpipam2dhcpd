@@ -38,6 +38,7 @@ $hosts = "";
 $subnet_data = "";
 $dhcp_classes = [];
 $locationsdb = [];
+$devsdb = [];
 
 // -----------------------------------------------------------------------------
 
@@ -241,7 +242,7 @@ function get_hosts()
 
 function get_location_name($id)
 {   
-    global $url, $token, $subnet, $locationsdb;
+    global $url, $token, $locationsdb;
 
     // is it in cache?
     if( array_key_exists($id, $locationsdb) == true ){
@@ -272,7 +273,7 @@ function get_location_name($id)
     $loc_data = json_decode($server_output);
         
     if( $loc_data->success == false ){
-        printf(">>> ERROR: Unable to get hosts for %s\n\n",$subnet);
+        printf(">>> ERROR: Unable to get location for %d\n\n",$id);
         var_dump($loc_data); 
         exit(1);
     } 
@@ -282,6 +283,52 @@ function get_location_name($id)
     return($name);
 }
 
+// -----------------------------------------------------------------------------
+
+function get_device_name($id)
+{
+    if( $id == 0 ) return("");
+
+    global $url, $token, $subnet, $devsdb;
+
+    // is it in cache?
+    if( array_key_exists($id, $devsdb) == true ){
+        return($devsdb[$id]);
+    }
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "devices/" . $id . "/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $headers = [
+        "token: $token"
+    ];
+
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+    $server_output = curl_exec ($ch);
+
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }
+
+    curl_close ($ch);
+
+    $dev_data = json_decode($server_output);
+
+    if( $dev_data->success == false ){
+        printf(">>> ERROR: Unable to get device %d\n\n",$id);
+        var_dump($dev_data);
+        exit(1);
+    }
+
+    $name = sprintf("%s (%s)",$dev_data->data->hostname,str_replace("\r",'',str_replace("\n", ' ', $dev_data->data->description)));
+    $devsdb[$id] = $name;
+    return($name);
+}
 
 
 // -----------------------------------------------------------------------------
@@ -350,6 +397,7 @@ function generate_header($fh)
     global $hosts;
    
     $first = true;
+    $pool = [];
     foreach($hosts->data as $item){
         if( ( $item->ip != "" ) && ( $item->mac == "" ) && ( $item->custom_DHCP == "POOL" ) ){
             $pool[] = $item->ip;
@@ -431,13 +479,26 @@ function generate_group($fh,$gname)
         if( $item->port != "" ){
         fprintf($fh,"       # Plug/port:      %s\n",$item->port);
         }
+        if( $item->deviceId != 0 ){
+            $devstr = get_device_name($item->deviceId);
+        fprintf($fh,"       # Device:         %s\n",$devstr);
+        }
+        if( ($item->custom_Admin != "User") && ($item->custom_Admin != "") ){
         fprintf($fh,"       # Admin:          %s\n",$item->custom_Admin);
         if( $item->custom_User != "" ){
         fprintf($fh,"       # User:           %s\n",$item->custom_User);
         }
+        } else {
+        if( $item->custom_User != "" ){
+        fprintf($fh,"       # User and admin: %s\n",$item->custom_User);
+        }
+        }
         fprintf($fh,"       # Group:          %s\n",$item->custom_Group);
         if( $item->custom_Cluster != "" ){
         fprintf($fh,"       # Cluster:        %s\n",$item->custom_Cluster);
+        }
+        if( $item->custom_OS != "" ){
+        fprintf($fh,"       # OS:             %s\n",$item->custom_OS);
         }
 
         fprintf($fh,"   }\n");

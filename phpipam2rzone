@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 // -----------------------------------------------------------------------------
-// Usage: $ ./phpipam2rzone <subnet>
+// Usage: $ ./phpipam2rzone [--no-header] <subnet>
 //
 // Example:
 //        $ ./phpipam2rzone 147.251.90.0/24
@@ -12,13 +12,25 @@
 
 printf("\n");
 
-if( $argc == 1 ){
+$arg_start=1;
+$nargs = $argc;
+$print_header = true;
+
+if( $nargs > 1 ){
+    if( $argv[1] == "--no-header" ){
+        $arg_start=2;
+        $nargs--;
+        $print_header = false;
+    }
+}
+
+if( $nargs == 1 ){
     printf(">>> ERROR: No subnet specified!\n\n");
     exit(1);
 }
 
 // subnet is the first argument
-$subnet = $argv[1];
+$subnet = $argv[$arg_start];
 if( $subnet == "" ) {
     printf(">>> ERROR: Master subnet not specified!\n\n");
     exit(1);
@@ -38,6 +50,7 @@ $hosts = "";
 $subnet_data = "";
 $dhcp_classes = [];
 $locationsdb = [];
+$devsdb = [];
 
 // -----------------------------------------------------------------------------
 
@@ -227,6 +240,9 @@ function get_hosts()
     }    
 
     curl_close ($ch);
+
+//    printf($server_output);
+//    exit(1);
     
     $hosts = json_decode($server_output);
         
@@ -242,7 +258,7 @@ function get_hosts()
 
 function get_location_name($id)
 {   
-    global $url, $token, $subnet, $locationsdb;
+    global $url, $token, $locationsdb;
 
     // is it in cache?
     if( array_key_exists($id, $locationsdb) == true ){
@@ -273,7 +289,7 @@ function get_location_name($id)
     $loc_data = json_decode($server_output);
         
     if( $loc_data->success == false ){
-        printf(">>> ERROR: Unable to get hosts for %s\n\n",$subnet);
+        printf(">>> ERROR: Unable to get location for %d\n\n",$id);
         var_dump($loc_data); 
         exit(1);
     } 
@@ -283,7 +299,52 @@ function get_location_name($id)
     return($name);
 }
 
+// -----------------------------------------------------------------------------
 
+function get_device_name($id)
+{ 
+    if( $id == 0 ) return("");
+
+    global $url, $token, $subnet, $devsdb;
+
+    // is it in cache?
+    if( array_key_exists($id, $devsdb) == true ){
+        return($devsdb[$id]);
+    }
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "devices/" . $id . "/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $headers = [
+        "token: $token"
+    ];
+
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+    $server_output = curl_exec ($ch);
+
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }
+
+    curl_close ($ch);
+
+    $dev_data = json_decode($server_output);
+
+    if( $dev_data->success == false ){
+        printf(">>> ERROR: Unable to get device %d\n\n",$id);
+        var_dump($dev_data);
+        exit(1);
+    }
+
+    $name = sprintf("%s (%s)",$dev_data->data->hostname,str_replace("\r",'',str_replace("\n", ' ', $dev_data->data->description)));
+    $devsdb[$id] = $name;
+    return($name);
+}
 
 // -----------------------------------------------------------------------------
 
@@ -377,18 +438,29 @@ function generate_group($fh)
         }
         if( $item->port != "" ){
         fprintf($fh,"   ; Plug/port: %s\n",$item->port);
-        }       
-        if( $item->custom_Admin != "" ){
-        fprintf($fh,"   ; Admin:     %s\n",$item->custom_Admin);
         }
+        if( $item->deviceId != 0 ){
+            $devstr = get_device_name($item->deviceId);
+        fprintf($fh,"   ; Device:    %s\n",$devstr);
+        }
+        if( ($item->custom_Admin != "User") && ($item->custom_Admin != "") ){
+        fprintf($fh,"   ; Admin:     %s\n",$item->custom_Admin);
         if( $item->custom_User != "" ){
-        fprintf($fh,"   ; User:      %s\n",$item->custom_User); 
+        fprintf($fh,"   ; User:      %s\n",$item->custom_User);
+        }
+        } else {
+        if( $item->custom_User != "" ){
+        fprintf($fh,"   ; User and admin: %s\n",$item->custom_User);
+        }
         }
         if( $item->custom_Group != "" ){
         fprintf($fh,"   ; Group:     %s\n",$item->custom_Group);
         }
         if( $item->custom_Cluster != "" ){        
         fprintf($fh,"   ; Cluster:   %s\n",$item->custom_Cluster);
+        }
+        if( $item->custom_OS != "" ){ 
+        fprintf($fh,"   ; OS:        %s\n",$item->custom_OS);
         }
         fprintf($fh,"   ; IP:        %s\n",$item->ip);
     }
@@ -407,38 +479,58 @@ $subnet_items = explode("/", $subnet);
 $ip_items = explode(".", $subnet_items[0]);
 
 if( $ip_items[3] != 0 ){
-    printf(">>> ERROR: Last digit in IP address of subnet must be zero!\n\n");
+    printf("\n>>> ERROR: Last digit in IP address %s of subnet must be zero!\n\n",$subnet_items[0]);
     exit(1);
 }
 
-$rzone_conf = sprintf("db.%d.%d.%d",$ip_items[0],$ip_items[1],$ip_items[2]);
+if( $print_header ){
 
-printf("\n"); 
-printf("Generating reverse zone configuration: %s\n",$rzone_conf);
+    $rzone_conf = sprintf("db.%d.%d.%d",$ip_items[0],$ip_items[1],$ip_items[2]);
 
-$fh = fopen($rzone_conf,"w");
-if( $fh == false ){
-    printf(">>> ERROR: Unable to open %s for writing!\n\n",$rzone_conf);
-    exit(1);
+    printf("\n"); 
+    printf("Generating reverse zone configuration: %s\n",$rzone_conf);
+
+    $fh = fopen($rzone_conf,"w");
+    if( $fh == false ){
+        printf(">>> ERROR: Unable to open %s for writing!\n\n",$rzone_conf);
+        exit(1);
+    }
+
+    generate_header($fh);
 }
 
-generate_header($fh);
-
-if( $argc == 2 ){
-    $start = 1;
+if( $nargs == 2 ){
+    $start = $arg_start;
 } else {
-    $start = 2;
+    $start = $arg_start+1;
 }
 
 for($i=$start;$i<$argc;$i++){
     $subnet = $argv[$i];
     if( $subnet == "" ) {
-        printf(">>> ERROR: Master subnet not specified!\n\n");
+        printf(">>> ERROR: Child subnet not specified!\n\n");
         exit(1);
     }
     get_subnetid();
     get_subnet();
     get_vlan();
+
+    if( ! $print_header ){
+        $subnet_items = explode("/", $subnet);
+        $ip_items = explode(".", $subnet_items[0]);
+
+        $rzone_conf = sprintf("db.%d.%d.%d.vlan%d",$ip_items[0],$ip_items[1],$ip_items[2],$vlan_data->data->number);
+
+        printf("\n"); 
+        printf("Generating reverse zone configuration: %s\n",$rzone_conf);
+    
+        $fh = fopen($rzone_conf,"w");
+        if( $fh == false ){
+            printf(">>> ERROR: Unable to open %s for writing!\n\n",$rzone_conf);
+            exit(1);
+        }
+    }
+
     get_hosts();
     print_data();
     if( $subnet_data->data->custom_Domain != $dns_domain ){
@@ -446,9 +538,14 @@ for($i=$start;$i<$argc;$i++){
         exit(1);
     }
     generate_group($fh);
+    if( ! $print_header ){
+        fclose($fh);
+    }
 }
 
-fclose($fh);
+if( $print_header ){
+    fclose($fh);
+}
 
 printf("Done!\n");
 printf("\n");   
