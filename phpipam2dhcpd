@@ -500,6 +500,9 @@ function generate_group($fh,$gname)
         if( $item->custom_OS != "" ){
         fprintf($fh,"       # OS:             %s\n",$item->custom_OS);
         }
+        if( $item->custom_AssetNo != "" ){
+        fprintf($fh,"       # Asset number    %s\n",$item->custom_AssetNo);
+        }
 
         fprintf($fh,"   }\n");
     }

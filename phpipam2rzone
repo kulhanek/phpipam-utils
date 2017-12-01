@@ -462,6 +462,9 @@ function generate_group($fh)
         if( $item->custom_OS != "" ){ 
         fprintf($fh,"   ; OS:        %s\n",$item->custom_OS);
         }
+        if( $item->custom_AssetNo != "" ){
+        fprintf($fh,"   ; Asset no:  %s\n",$item->custom_AssetNo);
+        }
         fprintf($fh,"   ; IP:        %s\n",$item->ip);
     }
     
