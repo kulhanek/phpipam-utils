@@ -401,18 +401,6 @@ function generate_header($fh)
     fprintf($fh,"\n");
     fprintf($fh,"subnet %s netmask %s {\n",$subnet_data->data->calculation->{'Network'},$subnet_data->data->calculation->{'Subnet netmask'});
     
-    fprintf($fh,"   default-lease-time         14400;\n");
-    fprintf($fh,"   max-lease-time             28800;\n");
-    fprintf($fh,"   deny                       unknown-clients;\n");    
-    fprintf($fh,"   deny                       bootp;\n");
-
-    fprintf($fh,"\n");    
-    fprintf($fh,"   option routers             %s;\n",$subnet_data->data->calculation->{'Min host IP'});
-    fprintf($fh,"   option subnet-mask         %s;\n",$subnet_data->data->calculation->{'Subnet netmask'});    
-    fprintf($fh,"   option domain-name-servers 147.251.4.33, 147.251.6.10;\n");
-    fprintf($fh,"   option domain-name         \"%s\";\n",$subnet_data->data->custom_Domain);
-
-
     // detect DHCP pool
     global $hosts;
    
@@ -437,11 +425,27 @@ function generate_header($fh)
         }
     }
 
+
+    fprintf($fh,"   default-lease-time         14400;\n");
+    fprintf($fh,"   max-lease-time             28800;\n");
+    if( count($pool) == 0 ){
+    fprintf($fh,"   deny                       unknown-clients;\n");
+    }
+    fprintf($fh,"   deny                       bootp;\n");
+
+    fprintf($fh,"\n");
+    fprintf($fh,"   option routers             %s;\n",$subnet_data->data->calculation->{'Min host IP'});
+    fprintf($fh,"   option subnet-mask         %s;\n",$subnet_data->data->calculation->{'Subnet netmask'});
+    fprintf($fh,"   option domain-name-servers 147.251.4.33, 147.251.6.10;\n");
+    fprintf($fh,"   option domain-name         \"%s\";\n",$subnet_data->data->custom_Domain);
+
+
     if( count($pool) > 0 ){
     fprintf($fh,"\n");
     fprintf($fh,"   # DHCP pool\n");
     fprintf($fh,"   pool {\n");
     fprintf($fh,"      range %s %s;\n",$pool[0],$pool[count($pool)-1]);
+    fprintf($fh,"      allow unknown-clients;\n");
     fprintf($fh,"   }\n");
     }
     
