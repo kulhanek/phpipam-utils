@@ -386,6 +386,12 @@ function generate_header($fh)
     fprintf($fh,"; subnet     : %s\n",$subnet);
     fprintf($fh,"; admin      : %s\n",$subnet_data->data->custom_Admin);
     fprintf($fh,"; tech admin : %s\n",$subnet_data->data->custom_TechAdmin);
+    if( $subnet_data->data->custom_NSAdmin != "" ){
+    fprintf($fh,"; dns admin  : %s\n",$subnet_data->data->custom_NSAdmin);
+    }
+    if( $subnet_data->data->custom_DHCPAdmin != "" ){
+    fprintf($fh,"; dhcp admin : %s\n",$subnet_data->data->custom_DHCPAdmin);
+    }
     if( $subnet_data->data->custom_SecAlerts != "" ){
     fprintf($fh,"; sec-alerts : %s\n",$subnet_data->data->custom_SecAlerts);
     }
@@ -425,6 +431,12 @@ function generate_group($fh)
     fprintf($fh,"; vlan       : %d (%s)\n",$vlan_data->data->number, $vlan_data->data->name);
     fprintf($fh,"; admin      : %s\n",$subnet_data->data->custom_Admin);
     fprintf($fh,"; tech admin : %s\n",$subnet_data->data->custom_TechAdmin);
+    if( $subnet_data->data->custom_NSAdmin != "" ){
+    fprintf($fh,"; dns admin  : %s\n",$subnet_data->data->custom_NSAdmin);
+    }
+    if( $subnet_data->data->custom_DHCPAdmin != "" ){
+    fprintf($fh,"; dhcp admin : %s\n",$subnet_data->data->custom_DHCPAdmin);
+    }
     fprintf($fh,"; sec-alerts : %s\n",$subnet_data->data->custom_SecAlerts);
     fprintf($fh,"; -----------------------------------------------------------------------------\n");
         
