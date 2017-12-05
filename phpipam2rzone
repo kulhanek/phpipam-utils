@@ -406,7 +406,7 @@ function generate_header($fh)
     fprintf($fh,"\n");
     fprintf($fh,"\$ORIGIN %d.%d.%d.in-addr.arpa.\n",$ip_items[2],$ip_items[1],$ip_items[0]);
     fprintf($fh,"\$TTL 86400\n");
-    fprintf($fh,"@   IN  SOA %s.   %s. (\n",$ns_list[0],str_replace("@",".",$subnet_data->data->custom_TechAdmin));
+    fprintf($fh,"@   IN  SOA %s.   %s. (\n",trim($ns_list[0]),str_replace("@",".",$subnet_data->data->custom_TechAdmin));
     fprintf($fh,"            %s ; serial\n",date("ymdHi"));
     fprintf($fh,"            21600      ; refresh after 6 hours\n");
     fprintf($fh,"            3600       ; retry after 1 hour\n");
@@ -416,7 +416,7 @@ function generate_header($fh)
     fprintf($fh,"\n");
     fprintf($fh,"; zone setup\n");
     foreach($ns_list as $ns){
-        fprintf($fh,"   IN  NS  %s.\n",$ns);
+        fprintf($fh,"   IN  NS  %s.\n",trim($ns));
     }
 }
 
