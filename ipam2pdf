@@ -1,0 +1,411 @@
+#!/usr/bin/env php
+<?php
+$arguments = getopt("s:r:n:c:h");
+
+if(array_key_exists("h",$arguments))
+{
+echo "Program to print ipam data to pdf file \n
+arguments: [-s][-r][-n][-c][-h] 
+compulsory:
+    -s name of subnet
+optional(one of them- if none of them specified all subnet will be printed):
+    -c cluster (result is <subnet>_cluster.pdf)
+    -r range of adresses from subnet (last byte)(format: <first address>-<last address> result is <subnet>_range.pdf)
+    -n name of machine (for more machine: divided by spaces and put into quotes, result is <subnet_selected.pdf>)
+help:    
+    -h (print this help and exit)
+program uses fpdf library v 1.81 http://www.fpdf.org/en/dl.php?v=181&f=zip - fpdf.php and font folder must be in same folder as this script
+examples: 
+    ./ipam2pdf -s 147.251.90.0/24 -c ROBOX
+    ./ipam2pdf -s 147.251.90.0/24 -r 10-20 // ips 147.251.90.10-147.251.90.20
+    ./ipam2pdf -s 147.251.90.0/24 -n 'pes.ncbr.muni.cz fes.ncbr.muni.cz' \n"; 
+exit(0);
+}
+if(array_key_exists("s",$arguments) == FALSE)
+{
+    echo "Subnet not specified";
+}
+$subnet = $arguments["s"];
+
+//--------------------------------------------------------------------------
+require('fpdf.php');
+include 'phpipam.conf';
+// -----------------------------------------------------------------------------
+
+$paper_width=210;
+$paper_height = 297;
+$subnetid = 0;
+$data = [];
+$token = "";
+$hosts = "";
+$subnet_data = "";
+$dhcp_classes = [];
+$locationsdb = [];
+$devsdb = [];
+
+// -----------------------------------------------------------------------------
+
+// stop on any warning
+// https://stackoverflow.com/questions/10520390/stop-script-execution-upon-notice-warning
+
+function errHandle($errNo, $errStr, $errFile, $errLine) {
+    $msg = "$errStr in $errFile on line $errLine";
+    if ($errNo == E_NOTICE || $errNo == E_WARNING) {
+        throw new ErrorException($msg, $errNo);
+    } else {
+        echo $msg;
+    }
+}
+
+set_error_handler('errHandle');
+
+// -----------------------------------------------------------------------------
+
+function init_session()
+{   
+    global $url, $username, $passwd, $token;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "user/");
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_USERPWD, "$username:$passwd");
+    curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $json = json_decode($server_output);
+
+    $token = $json->data->token;
+    
+}
+
+// -----------------------------------------------------------------------------
+
+function get_subnetid()
+{   
+    global $url, $token, $subnetid, $subnet;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "subnets/cidr/" . $subnet ."/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $headers = [
+        "token: $token"
+    ];
+    
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);    
+
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $subnet_data = json_decode($server_output);
+    
+    if( $subnet_data->success == false ){
+        printf(">>> ERROR: Unable to get subnet id for %s\n\n",$subnet);
+        var_dump($subnet_data); 
+        exit(1);
+    }   
+        
+    $subnetid = $subnet_data->data[0]->id;
+}
+
+// -----------------------------------------------------------------------------
+
+function get_subnet()
+{   
+    global $url, $token, $subnetid, $subnet, $subnet_data;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "subnets/" . $subnetid ."/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $headers = [
+        "token: $token"
+    ];
+    
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);    
+
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $subnet_data = json_decode($server_output);
+        
+    if( $subnet_data->success == false ){
+        printf(">>> ERROR: Unable to get hosts for %s\n\n",$subnet);
+        var_dump($subnet_data); 
+        exit(1);
+    } 
+}
+
+// -----------------------------------------------------------------------------
+
+class PDF extends FPDF
+{
+
+function checkForEOL($page_height)
+{
+	$pos_from_bottom = $page_height-$this->GetY();
+	if($pos_from_bottom < 42) // size of table + 10mm from bottom
+	{
+	$this->AddPage();
+	}
+}
+
+function checkCluster($dhcp_dec, $index)
+{   
+    global $cust_adm, $table;
+    if ($dhcp_dec["data"][$index]["custom_Admin"] == "User")
+    {
+    $cust_adm = iconv("UTF-8","windows-1252//IGNORE", $dhcp_dec["data"][$index]["custom_User"]);
+    }
+    elseif ($dhcp_dec["data"][$index]["custom_Admin"] != "")
+    {
+    $cust_adm = $dhcp_dec["data"][$index]["custom_Admin"];
+    }
+    if(isset($cust_adm))
+    {
+            if($dhcp_dec["data"][$index]["custom_Cluster"] == "")
+            {
+                $this->Cell(90,6,"Admin: ".$cust_adm, $ln=1, $border=1, $align='C');
+            }
+            else
+            {
+                $this->Cell(60,6,"Admin: ".$cust_adm, $border=1, $align='C');
+                $this->Cell(30,6,"Cluster: ".$dhcp_dec["data"][$index]["custom_Cluster"], $ln=1,$border=1,$align='C');
+            }
+    }
+    //$cust_adm = NULL;
+    //$this->Ln();
+}
+function drawTable($dhcp_dec, $data, $index)
+/* draw table on left side */
+{
+	global $a, $cust_adm;
+	$data = 'data';
+    //print_r($dhcp_list["data"][$x]);
+	$a = $this->GetY();
+    $this->SetFontSize(20);
+    $this->Cell(90,10,explode(".",$dhcp_dec["data"][$index]["hostname"])[0],$ln=1,$border=1,$align='C');
+    $this->SetFontSize(8);
+    $this->Cell(45,6,$dhcp_dec["data"][$index]["ip"],$border=1,$align='C');
+    $this->Cell(45,6,$dhcp_dec["data"][$index]["hostname"],$ln=1,$border=1,$align='C');
+	$this->checkCluster($dhcp_dec, $index);
+    /*
+    if($dhcp_dec["data"][$index]["custom_Cluster"] == "")
+	{
+    	$this->Cell(90,6,"Admin: ".$dhcp_dec["data"][$index]["custom_Admin"], $ln=1, $border=1, $align='C');
+	}
+	else
+	{
+    	$this->Cell(60,6,"Admin: ".$dhcp_dec["data"][$index]["custom_Admin"], $border=1, $align='C');
+    	$this->Cell(30,6,"Cluster: ".$dhcp_dec["data"][$index]["custom_Cluster"], $ln=1,$border=1,$align='C');
+	}
+    */
+    //$this->Ln();
+    $cust_adm = NULL;
+	return;
+    
+}
+
+
+function drawTable_r($dhcp_dec, $data, $index, $page_width, $paper_height)
+/* draw table on right site */
+{   	
+	global $a, $cust_adm;	
+	$data = 'data';
+	$this->SetY($a);
+    //print_r($dhcp_list["data"][$x]);
+    $this->SetFontSize(20);
+	$this->SetX($page_width/2);
+    $this->Cell(90,10,explode(".",$dhcp_dec["data"][$index]["hostname"])[0],$ln=1,$border=1,$align='C');
+    $this->SetFontSize(8);
+	$this->SetX($page_width/2);
+    $this->Cell(45,6,$dhcp_dec["data"][$index]["ip"],$border=1,$align='C');
+    $this->Cell(45,6,$dhcp_dec["data"][$index]["hostname"],$ln=1,$border=1,$align='C');
+	$this->SetX($page_width/2);
+    $this->checkCluster($dhcp_dec, $index);
+    /*
+	if($dhcp_dec["data"][$index]["custom_Cluster"] == "")
+	{
+    	$this->Cell(90,6,"Admin: ".$dhcp_dec["data"][$index]["custom_Admin"],$ln=1 ,$border=1, $align='C');
+	}
+	else
+	{
+    	$this->Cell(60,6,"Admin: ".$dhcp_dec["data"][$index]["custom_Admin"], $border=1, $align='C');
+    	$this->Cell(30,6,"Cluster: ".$dhcp_dec["data"][$index]["custom_Cluster"], $ln=1,$border=1,$align='C');
+	}
+    */
+    if(isset($cust_adm) == FALSE)
+    {
+        $this->Ln();
+    }
+    $cust_adm = NULL;
+    $this->Ln();
+	$this->checkForEOL($paper_height);
+	return;
+    
+}
+
+}
+// -----------------------------------------------------------------------------
+
+function get_hosts()
+{   
+    global $url, $token, $subnetid, $subnet, $hosts, $hosts_ass_array;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "subnets/" . $subnetid ."/addresses/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $headers = [
+        "token: $token"
+    ];
+    
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);    
+
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $hosts_ass_array = json_decode($server_output, $assoc = TRUE);
+    $hosts = json_decode($server_output); 
+
+    if( $hosts->success == false ){
+        printf(">>> ERROR: Unable to get hosts for %s\n\n",$subnet);
+        //var_dump($hosts); 
+        exit(1);
+    } 
+    $hosts = json_decode($server_output, $assoc = TRUE); 
+    return $hosts;
+    
+}
+//------------------------------------------------------------------------------
+function drawTables($hosts_to_print, $paper_width, $paper_height, $x, $pdf, $c)
+{   
+         //echo $pdf->GetY()."\n";
+	if($c % 2 == 0)
+	{
+        $pdf->drawTable($hosts_to_print,"data",$x,$paper_width);
+	}
+	else
+	{
+	    $pdf->drawTable_r($hosts_to_print,"data",$x,$paper_width, $paper_height);
+    }
+}
+
+// -----------------------------------------------------------------------------
+
+init_session();
+get_subnetid();
+get_subnet();
+$hosts_to_print = get_hosts();
+
+$pdf = new PDF('P','mm',array(210,297));
+$pdf->AddPage();
+$pdf->SetFont('Arial','B',16);
+$c = 0;
+
+//all subnets
+if(array_key_exists("r",$arguments) == FALSE and array_key_exists("n",$arguments) == FALSE and array_key_exists("c",$arguments) == FALSE)
+{   
+    for($x = 0; $x < count($hosts_to_print["data"]); $x++) 
+    {
+    drawTables($hosts_to_print, $paper_width, $paper_height, $x, $pdf, $c);
+    $c++;
+    }
+    $pdf->Output('F', explode("/",$arguments["s"])[0].'.pdf');
+    exit(0);
+}
+
+if((array_key_exists("r",$arguments) == TRUE and array_key_exists("n",$arguments) == TRUE) or (array_key_exists("c",$arguments) == TRUE and array_key_exists("n",$arguments) == TRUE) or (array_key_exists("r",$arguments) == TRUE and array_key_exists("c",$arguments) == TRUE))
+{
+    exit("Insert either ip range or names of computers or cluster name \n \n");
+}
+// by ip range
+if(array_key_exists("r",$arguments) == TRUE)
+{ 
+    $iprange = explode("-",$arguments["r"]);
+    for($x = 0; $x < count($hosts_to_print["data"]); $x++)
+        {
+        for($z=intval($iprange[0]); $z <= intval(end($iprange)); $z++)
+            {
+            $ip_add = substr_replace(explode("/",$arguments["s"])[0],"", -1).$z;
+            if($ip_add == $hosts_to_print["data"][$x]["ip"])
+                {
+                drawTables($hosts_to_print, $paper_width, $paper_height, $x, $pdf, $c);
+                $c++;
+                }
+            }
+        }
+    $pdf->Output('F', explode("/",$arguments["s"])[0].'_'.$arguments["r"].'.pdf');
+    exit(0);
+}
+
+// get addresses by name
+if(array_key_exists("n",$arguments) == TRUE)
+{ 
+    $names = explode(" ",$arguments["n"]);
+    for($x = 0; $x < count($hosts_to_print["data"]); $x++)
+        {
+        for($y = 0; $y < count($names); $y++)
+            {
+            if($names[$y] == $hosts_to_print["data"][$x]["hostname"])
+                {
+                drawTables($hosts_to_print, $paper_width, $paper_height, $x, $pdf, $c);
+                $c++;
+                }
+            }
+        }
+    $pdf->Output('F', explode("/",$arguments["s"])[0].'_selected.pdf');
+    exit(0);
+}
+//by cluster
+if(array_key_exists("c",$arguments) == TRUE)
+{ 
+    $cluster = $arguments["c"];
+    for($x = 0; $x < count($hosts_to_print["data"]); $x++)
+        {
+            if($cluster == $hosts_to_print["data"][$x]["custom_Cluster"])
+                {
+                drawTables($hosts_to_print, $paper_width, $paper_height, $x, $pdf, $c);
+                $c++;
+                }
+        }
+        
+    $pdf->Output('F', explode("/",$arguments["s"])[0].'_'.$cluster.'.pdf');
+    exit(0);
+}
+
+?>
