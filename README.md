@@ -43,4 +43,7 @@ phpipam2dhcpd generate configuration file for the ISC DHCP server. The utilitity
 $ ./phpipam2dhcpd 147.251.90.0/24                      # create 147.251.90.0.conf file for isc-dhcp-server
 ```
 
+### phpipam2labels
+
+phpipam2labels creates pdf file with labels for every or selected machines in subnet. For more info type check help option (./phpipam2labels -h). When needed to use, phpipam-utils/extras/tfpdf_lib_temp must be renamed to phpipam-utils/extras/tfpdf_lib
 
