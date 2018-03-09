@@ -27,8 +27,10 @@ if(array_key_exists("s",$arguments) == FALSE)
 }
 $subnet = $arguments["s"];
 
+
 //--------------------------------------------------------------------------
-require('extras/tfpdf_lib/tfpdf.php');
+require('./extras/tfpdf_lib/tfpdf.php');
+//require('./extras/tfpdf_lib/cells_bold.php');
 include 'phpipam.conf';
 // -----------------------------------------------------------------------------
 
@@ -42,7 +44,15 @@ $subnet_data = "";
 $dhcp_classes = [];
 $locationsdb = [];
 $devsdb = [];
-
+$new_page_checker = 1;
+$cell_width = 95;
+$cell_width_half = $cell_width/2;
+$cell_header_height = 14.25;
+$cell_height = 7.14;
+$font_size = 10;
+$header_size = 28;
+$bottom_break = 10.9;
+$report_to = "Any changes need to be reported to support@lcc.ncbr.muni.cz";
 // -----------------------------------------------------------------------------
 
 // stop on any warning
@@ -119,7 +129,7 @@ function get_subnetid()
     
     if( $subnet_data->success == false ){
         printf(">>> ERROR: Unable to get subnet id for %s\n\n",$subnet);
-        //var_dump($subnet_data); 
+        var_dump($subnet_data); 
         exit(1);
     }   
         
@@ -154,7 +164,7 @@ function get_subnet()
     curl_close ($ch);
     
     $subnet_data = json_decode($server_output);
-        
+    //var_dump($subnet_data); 
     if( $subnet_data->success == false ){
         printf(">>> ERROR: Unable to get hosts for %s\n\n",$subnet);
         var_dump($subnet_data); 
@@ -164,55 +174,130 @@ function get_subnet()
 
 // -----------------------------------------------------------------------------
 
+function get_location_name($id)
+{   
+    global $url, $token, $locationsdb;
+
+    // is it in cache?
+    if( array_key_exists($id, $locationsdb) == true ){
+        return($locationsdb[$id]);
+    }
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "tools/locations/" . $id . "/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $headers = [
+        "token: $token"
+    ];
+    
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);    
+
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $loc_data = json_decode($server_output);
+        
+    if( $loc_data->success == false ){
+        printf(">>> ERROR: Unable to get location for %d\n\n",$id);
+        var_dump($loc_data); 
+        exit(1);
+    } 
+    
+    $name = $loc_data->data->name;
+    $locationsdb[$id] = $name;
+    return($name);
+}
+
+// -----------------------------------------------------------------------------
 class PDF extends tFPDF
 {
 
-function checkForEOL($page_height)
+function checkForEOL($table_size)
 {
-	$pos_from_bottom = $page_height-$this->GetY();
-	if($pos_from_bottom < 42) // size of table + 10mm from bottom
+    global $paper_height, $new_page_checker;
+    $y = $this->GetY();
+	if(($y + $table_size + 21) > $paper_height) 
 	{
-	$this->AddPage();
+	    $this->AddPage();
+        $new_page_checker = 1;
 	}
 }
 
 function checkCluster($dhcp_dec, $index)
 {   
-    global $cust_adm, $table;
+    global $font_size, $cell_height,$cust_adm, $table, $cell_width, $cell_width_half;
     if ($dhcp_dec["data"][$index]["custom_Admin"] == "User")
     {
     $cust_adm = $dhcp_dec["data"][$index]["custom_User"];
     }
-    elseif ($dhcp_dec["data"][$index]["custom_Admin"] != "")
+    else
     {
     $cust_adm = $dhcp_dec["data"][$index]["custom_Admin"];
     }
-    if(isset($cust_adm))
+    $this->SetFont('DejaVu','',$font_size);
+    if($dhcp_dec["data"][$index]["custom_Cluster"] == "")
     {
-            if($dhcp_dec["data"][$index]["custom_Cluster"] == "")
-            {
-                $this->Cell(90,6,"Admin: ".$cust_adm, $ln=1, $border=1, $align='C');
-            }
-            else
-            {
-                $this->Cell(60,6,"Admin: ".$cust_adm, $border=1, $align='C');
-                $this->Cell(30,6,"Cluster: ".$dhcp_dec["data"][$index]["custom_Cluster"], $ln=1,$border=1,$align='C');
-            }
+        $this->Cell($cell_width,$cell_height,"Admin: ".$cust_adm, $ln=1, $border=1, $align='C');
+    }
+    else
+    {
+        $this->Cell($cell_width*(6.0/9.0),$cell_height,"Admin: ".$cust_adm, $border=1, $align='C');
+        $this->Cell($cell_width*(3.0/9.0),$cell_height,"Cluster: ".$dhcp_dec["data"][$index]["custom_Cluster"], $ln=1,$border=1,$align='C');
     }
 }
+
 function drawTable($dhcp_dec, $data, $index)
 /* draw table on left side */
 {
-	global $a, $cust_adm;
+	global $font_size, $header_size, $a, $cust_adm, $location, $y_after, $new_page_checker, $cell_width, $cell_width_half, $cell_header_height, $cell_height, $report_to;
+    $this->SetLeftMargin(5);
+    if ($dhcp_dec["data"][$index]["location"] > 0)
+    //if (is_null($dhcp_dec["data"][$index]["location"]) == FALSE)
+    {
+        $location = get_location_name($dhcp_dec["data"][$index]["location"]);
+    }
+    else
+    {
+        $location = "";
+    }
 	$data = 'data';
+    if($new_page_checker == 1)
+    {
+        $this->SetY(5, false);
+    }
+    //else
+    //{
+    //    $this->Ln(13.6);
+    //}
+    $this->SetLineWidth(0.3);
 	$a = $this->GetY();
-	$this->SetFont('Arial','B',20);
-    $this->Cell(90,10,explode(".",$dhcp_dec["data"][$index]["hostname"])[0],$ln=1,$border=1,$align='C');
-	$this->SetFont('DejaVu','',8);
-    $this->Cell(45,6,$dhcp_dec["data"][$index]["ip"],$border=1,$align='C');
-    $this->Cell(45,6,$dhcp_dec["data"][$index]["hostname"],$ln=1,$border=1,$align='C');
+    $this->SetLeftMargin(5);
+	$this->SetFont('Arial','B',$header_size);
+    $this->Cell($cell_width,$cell_header_height,explode(".",$dhcp_dec["data"][$index]["hostname"])[0],$ln=1,$border=1,$align='C');
+	$this->SetFont('DejaVu','',$font_size);
+    $this->Cell($cell_width_half,$cell_height,$dhcp_dec["data"][$index]["ip"],$border=1,$align='C');
+    $this->Cell($cell_width_half,$cell_height,$dhcp_dec["data"][$index]["hostname"],$ln=1,$border=1,$align='C');
 	$this->checkCluster($dhcp_dec, $index);
-    $cust_adm = NULL;
+    $this->Cell($cell_width_half,$cell_height,"Group: ".$dhcp_dec["data"][$index]["custom_Group"],$border=1,$align='C');
+    $this->Cell($cell_width_half,$cell_height,"DHCP: ".$dhcp_dec["data"][$index]["custom_DHCP"],$ln=1,$border=1,$align='C');
+    $this->Cell($cell_width,$cell_height,"MAC address: ".$dhcp_dec["data"][$index]["mac"],$ln=1,$border=1,$align='C');
+    $this->Cell($cell_width,$cell_height,"Asset number: ".$dhcp_dec["data"][$index]["custom_AssetNo"],$ln=1,$border=1,$align='C');
+    $this->Cell($cell_width_half,$cell_height,"Plug: ".$dhcp_dec["data"][$index]["port"],$border=1,$align='C');
+    $this->Cell($cell_width_half,$cell_height,"Location: ".$location,$ln=1,$border=1,$align='C');
+    //$this->Cell(90,6,"Changes need to be reported to: ".$dhcp_dec["data"][$index]["custom_Admin"],$border=1,$align='C');
+    $this->SetFont('DejaVu','',8);
+    $this->MultiCell($cell_width,$cell_height,$report_to,$border=1,$align='C');
+    //$cust_adm = NULL;
+    $new_page_checker = 0;
 	return;
     
 }
@@ -220,26 +305,54 @@ function drawTable($dhcp_dec, $data, $index)
 
 function drawTable_r($dhcp_dec, $data, $index, $page_width, $paper_height)
 /* draw table on right site */
-{   	
-	global $a, $cust_adm;	
-	$data = 'data';
-	$this->SetY($a);
-	$this->SetFont('Arial','B',20);
-	$this->SetX($page_width/2);
-    $this->Cell(90,10,explode(".",$dhcp_dec["data"][$index]["hostname"])[0],$ln=1,$border=1,$align='C');
-	$this->SetFont('DejaVu','',8);
-	$this->SetX($page_width/2);
-    $this->Cell(45,6,$dhcp_dec["data"][$index]["ip"],$border=1,$align='C');
-    $this->Cell(45,6,$dhcp_dec["data"][$index]["hostname"],$ln=1,$border=1,$align='C');
-	$this->SetX($page_width/2);
-    $this->checkCluster($dhcp_dec, $index);
-    if(isset($cust_adm) == FALSE)
+{     	
+	global $font_size, $header_size, $a, $cust_adm, $location,$cell_width, $cell_width_half, $cell_header_height, $cell_height, $bottom_break, $report_to;
+    $y_before = $this->GetY();
+    if ($dhcp_dec["data"][$index]["location"] > 0)
+    //if (is_null($dhcp_dec["data"][$index]["location"]) == FALSE)
     {
-        $this->Ln();
+        $location = get_location_name($dhcp_dec["data"][$index]["location"]);
     }
+    else
+    {
+        $location = "";
+    }
+    $this->SetLineWidth(0.3);
+    $indent = 5;
+	$data = 'data';
+    $this->SetAutoPageBreak(true,1);
+	$this->SetY($a);
+	$this->SetFont('Arial','B',$header_size);
+	$this->SetX($page_width/2 + $indent);
+    $this->Cell($cell_width,$cell_header_height,explode(".",$dhcp_dec["data"][$index]["hostname"])[0],$ln=1,$border=1,$align='C');
+	$this->SetFont('DejaVu','',$font_size);
+	$this->SetX($page_width/2 + $indent);
+    $this->Cell($cell_width_half,$cell_height,$dhcp_dec["data"][$index]["ip"],$border=1,$align='C');
+    $this->Cell($cell_width_half,$cell_height,$dhcp_dec["data"][$index]["hostname"],$ln=1,$border=1,$align='C');
+	$this->SetX($page_width/2 + $indent);
+    $this->checkCluster($dhcp_dec, $index);
+	$this->SetX($page_width/2 + $indent);
+    $this->Cell($cell_width_half,$cell_height,"Group: ".$dhcp_dec["data"][$index]["custom_Group"],$border=1,$align='C');
+    $this->Cell($cell_width_half,$cell_height,"DHCP: ".$dhcp_dec["data"][$index]["custom_DHCP"],$ln=1,$border=1,$align='C');
+	$this->SetX($page_width/2 + $indent);
+    $this->Cell($cell_width,$cell_height,"MAC address: ".$dhcp_dec["data"][$index]["mac"],$ln=1,$border=1,$align='C');
+	$this->SetX($page_width/2 + $indent);
+    $this->Cell($cell_width,$cell_height,"Asset number: ".$dhcp_dec["data"][$index]["custom_AssetNo"],$ln=1,$border=1,$align='C');
+	$this->SetX($page_width/2 + $indent);
+    $this->Cell($cell_width_half,$cell_height,"Plug: ".$dhcp_dec["data"][$index]["port"],$border=1,$align='C');
+    $this->Cell($cell_width_half, $cell_height,"Location: ".$location,$ln=1,$border=1,$align='C');
+	$this->SetX($page_width/2 + $indent);
+    $this->SetFont('DejaVu','',8);
+    $this->MultiCell($cell_width, $cell_height,$report_to,$border=1,$align='C');
     $cust_adm = NULL;
-    $this->Ln();
-	$this->checkForEOL($paper_height);
+    $this->Ln($bottom_break);
+    //if(isset($cust_adm) == FALSE)
+    //{
+    //    $this->Ln();
+    //}
+    $y_after = $this->GetY();
+    $table_size = $y_after - $y_before;
+	$this->checkForEOL($table_size);
 	return;
     
 }
@@ -289,6 +402,7 @@ function drawTables($hosts_to_print, $paper_width, $paper_height, $x, $pdf, $c)
 {   
 	if($c % 2 == 0)
 	{
+        //$pdf->Ln(13);
         $pdf->drawTable($hosts_to_print,"data",$x,$paper_width);
 	}
 	else
@@ -303,6 +417,8 @@ init_session();
 get_subnetid();
 get_subnet();
 $hosts_to_print = get_hosts();
+
+//var_dump($hosts_to_print);
 
 $pdf = new PDF('P','mm',array(210,297));
 $pdf->AddPage();
