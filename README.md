@@ -45,7 +45,7 @@ $ ./phpipam2dhcpd 147.251.90.0/24                      # create 147.251.90.0.con
 
 ### phpipam2labels
 
-phpipam2labels creates pdf file with labels for every or selected machines in subnet. For more info type check help option see below. When needed to use, phpipam-utils/extras/tfpdf_lib_temp must be renamed to phpipam-utils/extras/tfpdf_lib
+phpipam2labels creates pdf file with labels for every or selected machines in subnet. For more info check help option- see below. When needed to use, phpipam-utils/extras/tfpdf_lib_temp must be renamed to phpipam-utils/extras/tfpdf_lib
 
 ```bash
 ./phpipam2labels -h
