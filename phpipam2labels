@@ -51,7 +51,7 @@ $cell_header_height = 14.25;
 $cell_height = 7.14;
 $font_size = 10;
 $header_size = 28;
-$bottom_break = 10.9;
+$bottom_break = 11.3;
 $report_to = "Any changes need to be reported to support@lcc.ncbr.muni.cz";
 // -----------------------------------------------------------------------------
 
@@ -272,7 +272,7 @@ function drawTable($dhcp_dec, $data, $index)
 	$data = 'data';
     if($new_page_checker == 1)
     {
-        $this->SetY(5, false);
+        $this->SetY(3, false);
     }
     //else
     //{
@@ -320,7 +320,7 @@ function drawTable_r($dhcp_dec, $data, $index, $page_width, $paper_height)
     $this->SetLineWidth(0.3);
     $indent = 5;
 	$data = 'data';
-    $this->SetAutoPageBreak(true,1);
+    $this->SetAutoPageBreak(true,0.5);
 	$this->SetY($a);
 	$this->SetFont('Arial','B',$header_size);
 	$this->SetX($page_width/2 + $indent);
