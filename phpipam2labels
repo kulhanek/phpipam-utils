@@ -1,6 +1,6 @@
 #!/usr/bin/env php
 <?php
-$arguments = getopt("s:n:v:f:h");
+$arguments = getopt("s:n:v:f:r:h");
 
 if(array_key_exists("h",$arguments))
 {
@@ -12,6 +12,7 @@ optional(one or two them- if none of them specified all subnet will be printed):
 	-f field- use only with value. Pick any default or custom field by which you want to choose key
     -v value- use only with field. Specify 
     -n name of machine (for more machine: divided by spaces and put into quotes, result is <subnet_selected.pdf>)
+    -s resize header and name of machine (default value is 1- no resize. Useful for long names of machines)
 help:    
     -h (print this help and exit)
 program uses tFPDF edited library (tfpdf.php file and font folder) 
@@ -51,6 +52,14 @@ $cell_header_height = 21.375;
 $cell_height = 7.14;
 $font_size = 10;
 $header_size = 42;
+if(array_key_exists("r",$arguments) == TRUE)
+    {
+    $header_name_size_scale = $arguments["r"];
+    }
+else
+    {
+    $header_name_size_scale = 1.0;
+    }
 $bottom_break = 12.7;
 $report_to = "Any changes need to be reported to support@lcc.ncbr.muni.cz";
 // -----------------------------------------------------------------------------
@@ -258,7 +267,7 @@ function checkCluster($dhcp_dec, $index)
 function drawTable($dhcp_dec, $data, $index)
 /* draw table on left side */
 {
-	global $font_size, $header_size, $a, $cust_adm, $location, $y_after, $new_page_checker, $cell_width, $cell_width_half, $cell_header_height, $cell_height, $report_to;
+	global $font_size, $header_size, $a, $cust_adm, $location, $y_after, $new_page_checker, $cell_width, $cell_width_half, $cell_header_height, $cell_height, $report_to, $header_name_size_scale;
     $this->SetLeftMargin(5);
     if ($dhcp_dec["data"][$index]["location"] > 0)
     //if (is_null($dhcp_dec["data"][$index]["location"]) == FALSE)
@@ -281,11 +290,13 @@ function drawTable($dhcp_dec, $data, $index)
     $this->SetLineWidth(0.3);
 	$a = $this->GetY();
     $this->SetLeftMargin(5);
-	$this->SetFont('Arial','B',$header_size);
+	$this->SetFont('Arial','B',$header_size * $header_name_size_scale);
     $this->Cell($cell_width,$cell_header_height,explode(".",$dhcp_dec["data"][$index]["hostname"])[0],$ln=1,$border=1,$align='C');
 	$this->SetFont('DejaVu','',$font_size);
     $this->Cell($cell_width_half,$cell_height,$dhcp_dec["data"][$index]["ip"],$border=1,$align='C');
+    $this->SetFont('DejaVu','',$font_size*$header_name_size_scale);
     $this->Cell($cell_width_half,$cell_height,$dhcp_dec["data"][$index]["hostname"],$ln=1,$border=1,$align='C');
+    $this->SetFont('DejaVu','',$font_size);
 	$this->checkCluster($dhcp_dec, $index);
     $this->Cell($cell_width_half,$cell_height,"Group: ".$dhcp_dec["data"][$index]["custom_Group"],$border=1,$align='C');
     $this->Cell($cell_width_half,$cell_height,"DHCP: ".$dhcp_dec["data"][$index]["custom_DHCP"],$ln=1,$border=1,$align='C');
@@ -308,7 +319,7 @@ function drawTable($dhcp_dec, $data, $index)
 function drawTable_r($dhcp_dec, $data, $index, $page_width, $paper_height)
 /* draw table on right site */
 {     	
-	global $font_size, $header_size, $a, $cust_adm, $location,$cell_width, $cell_width_half, $cell_header_height, $cell_height, $bottom_break, $report_to;
+	global $font_size, $header_size, $a, $cust_adm, $location,$cell_width, $cell_width_half, $cell_header_height, $cell_height, $bottom_break, $report_to, $header_name_size_scale;
     $y_before = $this->GetY();
     if ($dhcp_dec["data"][$index]["location"] > 0)
     //if (is_null($dhcp_dec["data"][$index]["location"]) == FALSE)
@@ -324,13 +335,15 @@ function drawTable_r($dhcp_dec, $data, $index, $page_width, $paper_height)
 	$data = 'data';
     $this->SetAutoPageBreak(true,0.05);
 	$this->SetY($a);
-	$this->SetFont('Arial','B',$header_size);
+	$this->SetFont('Arial','B',$header_size * $header_name_size_scale);
 	$this->SetX($page_width/2 + $indent);
     $this->Cell($cell_width,$cell_header_height,explode(".",$dhcp_dec["data"][$index]["hostname"])[0],$ln=1,$border=1,$align='C');
 	$this->SetFont('DejaVu','',$font_size);
 	$this->SetX($page_width/2 + $indent);
     $this->Cell($cell_width_half,$cell_height,$dhcp_dec["data"][$index]["ip"],$border=1,$align='C');
+    $this->SetFont('DejaVu','',$font_size * $header_name_size_scale);
     $this->Cell($cell_width_half,$cell_height,$dhcp_dec["data"][$index]["hostname"],$ln=1,$border=1,$align='C');
+    $this->SetFont('DejaVu','',$font_size);
 	$this->SetX($page_width/2 + $indent);
     $this->checkCluster($dhcp_dec, $index);
 	$this->SetX($page_width/2 + $indent);
