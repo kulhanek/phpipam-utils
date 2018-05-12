@@ -164,7 +164,10 @@ function get_subnet()
     curl_close ($ch);
     
     $subnet_data = json_decode($server_output);
-        
+       
+            var_dump($subnet_data);
+        exit(1);
+ 
     if( $subnet_data->success == false ){
         printf(">>> ERROR: Unable to get hosts for %s\n\n",$subnet);
         var_dump($subnet_data); 
@@ -357,12 +360,17 @@ function print_header()
 function print_data()
 {
     global $hosts, $dhcp_classes;
+    global $subnet_data;
 
     print_header();
     
     foreach($hosts->data as $item){
         if( ( $item->ip != "" ) && ( $item->hostname != "" ) && ( $item->mac != "" ) && ( $item->custom_DHCP != "NO" ) && ( $item->custom_DHCP != "POOL" ) ){
-            printf("%2s % 5d | %-16s | %-25s | %17s | %17s\n",'',$item->id,$item->ip,$item->hostname,$item->mac,$item->custom_DHCP);
+            $hostname = trim($item->hostname);
+            if ( strpos($hostname, ".") == false ){
+                $hostname = $hostname . "." . $subnet_data->data->custom_Domain;
+            }
+            printf("%2s % 5d | %-16s | %-25s | %17s | %17s\n",'',$item->id,$item->ip,$hostname,$item->mac,$item->custom_DHCP);
             $dhcp_classes[$item->custom_DHCP] = $item->custom_DHCP;
         }
     }
@@ -481,6 +489,7 @@ function generate_group_specific($fh,$gname)
 function generate_group($fh,$gname)
 {
     global $hosts;
+    global $subnet_data;
 
     fprintf($fh,"\n");
     fprintf($fh,"# DHCP group: %s\n",$gname);
@@ -493,7 +502,11 @@ function generate_group($fh,$gname)
         if( ( $item->ip == "" ) || ( $item->hostname == "" ) || ( $item->mac == "" ) || ( $item->custom_DHCP != $gname ) ) continue;
         fprintf($fh,"\n");        
         fprintf($fh,"# -----\n");
-        fprintf($fh,"   host %s {\n",$item->hostname);
+        $hostname = trim($item->hostname);
+        if ( strpos($hostname, ".") == false ){
+            $hostname = $hostname . "." . $subnet_data->data->custom_Domain;
+        }
+        fprintf($fh,"   host %s {\n",$hostname);
         fprintf($fh,"       hardware ethernet %s;\n",$item->mac);
         fprintf($fh,"       fixed-address     %s;\n",$item->ip );
         fprintf($fh,"       option host-name  \"%s\";\n",explode(".",$item->hostname)[0]);
