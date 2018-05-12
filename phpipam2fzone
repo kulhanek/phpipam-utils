@@ -16,8 +16,18 @@ $arg_start=1;
 $nargs = $argc;
 $print_header = true;
 
+$no_vlan = false;
+
 if( $nargs > 1 ){
-    if( $argv[1] == "--no-header" ){
+    if( $argv[$arg_start] == "--no-vlan" ){
+        $arg_start=2;
+        $nargs--;
+        $no_vlan = true;
+    }
+}
+
+if( $nargs > 1 ){
+    if( $argv[$arg_start] == "--no-header" ){
         $arg_start=2;
         $nargs--;
         $print_header = false;
@@ -242,6 +252,7 @@ function get_hosts()
     
     $hosts = json_decode($server_output);
         
+
     if( $hosts->success == false ){
         printf(">>> ERROR: Unable to get hosts for %s\n\n",$subnet);
         var_dump($hosts); 
@@ -355,13 +366,17 @@ function print_header()
 
 function print_data()
 {
-    global $hosts, $dhcp_classes;
+    global $hosts, $dhcp_classes, $subnet_data;
 
     print_header();
     
     foreach($hosts->data as $item){
         if( ( $item->ip != "" ) && ( $item->hostname != "" ) ){
-            printf("%2s % 5d | %-16s | %-25s \n",'',$item->id,$item->ip,$item->hostname);
+            $hostname = trim($item->hostname);
+            if ( strpos($hostname, ".") == false ){
+                $hostname = $hostname . "." . $subnet_data->data->custom_Domain;
+            }
+            printf("%2s % 5d | %-16s | %-25s \n",'',$item->id,$item->ip,$hostname);
         }
     }
     
@@ -415,12 +430,14 @@ function generate_header($fh)
     fprintf($fh,"\n");
     fprintf($fh,"; zone setup\n");
     foreach($ns_list as $ns){
-        fprintf($fh,"    IN  NS  %s.\n",$ns);
+        fprintf($fh,"    IN  NS  %s.\n",trim($ns));
     }
 
-    $mx_list = explode(",",$subnet_data->data->custom_MX);
-    foreach($mx_list as $mx){
-        fprintf($fh,"    IN  MX  %s.\n",trim($mx));
+    if( empty($subnet_data->data->custom_MX) == false ){
+        $mx_list = explode(",",$subnet_data->data->custom_MX);
+        foreach($mx_list as $mx){
+            fprintf($fh,"    IN  MX  %s.\n",trim($mx));
+        }
     }
 
 }
@@ -429,14 +446,16 @@ function generate_header($fh)
 
 function generate_group($fh)
 {
-    global $hosts, $dns_domain, $subnet, $vlan_data, $subnet_data, $print_header;
+    global $hosts, $dns_domain, $subnet, $vlan_data, $subnet_data, $print_header, $no_vlan;
 
     fprintf($fh,"\n");
     if( ! $print_header ){
     fprintf($fh,"; domain     : %s\n",$subnet_data->data->custom_Domain);
     }
     fprintf($fh,"; subnet     : %s\n",$subnet);
-    fprintf($fh,"; vlan       : %d (%s)\n",$vlan_data->data->number, $vlan_data->data->name);
+    if( $no_vlan == false ) {
+        fprintf($fh,"; vlan       : %d (%s)\n",$vlan_data->data->number, $vlan_data->data->name);
+    }
     fprintf($fh,"; admin      : %s\n",$subnet_data->data->custom_Admin);
     fprintf($fh,"; tech admin : %s\n",$subnet_data->data->custom_TechAdmin);
     if( $subnet_data->data->custom_NSAdmin != "" ){
@@ -447,16 +466,17 @@ function generate_group($fh)
     }
     fprintf($fh,"; sec-alerts : %s\n",$subnet_data->data->custom_SecAlerts);
     fprintf($fh,"; -----------------------------------------------------------------------------\n");
-     
-    $mx_list = explode(",",$subnet_data->data->custom_MX);
   
     foreach($hosts->data as $item){
         if( ( $item->ip == "" ) || ( $item->hostname == "" ) ) continue;
-        # process only records from domain
-        if( ! (strpos($item->hostname, $dns_domain) !== false) ) continue;
+        $hostname = trim($item->hostname);
+        if ( strpos($hostname, ".") == true ){
+            # process only records from domain
+            if( ! (strpos($hostname, $dns_domain) !== false) ) continue;
+        }
 
         fprintf($fh,"\n"); 
-        $hn_items = explode(".", $item->hostname);      
+        $hn_items = explode(".", $hostname);      
         fprintf($fh,"%-30s  IN  A  %s\n",$hn_items[0],$item->ip);
 
         if( $item->location > 0 ){
@@ -526,15 +546,30 @@ for($i=$arg_start;$i<$argc;$i++){
     }
     get_subnetid();
     get_subnet();
-    get_vlan();
+    
+    if( $no_vlan == false ){
+        get_vlan();
+    }
+
     if( ! $print_header ){
-        $fzone_conf_vlan = sprintf("db.%s.vlan%d",$dns_domain,$vlan_data->data->number);
-        printf("\n");
-        printf("Generating forward zone configuration: %s\n",$fzone_conf_vlan);
-        $fh = fopen($fzone_conf_vlan,"w");
-        if( $fh == false ){
-            printf(">>> ERROR: Unable to open %s for writing!\n\n",$fzone_conf);
-            exit(1);
+        if( $no_vlan == false ){
+            $fzone_conf_vlan = sprintf("db.%s.vlan%d",$dns_domain,$vlan_data->data->number);
+            printf("\n");
+            printf("Generating forward zone configuration: %s\n",$fzone_conf_vlan);
+            $fh = fopen($fzone_conf_vlan,"w");
+            if( $fh == false ){
+                printf(">>> ERROR: Unable to open %s for writing!\n\n",$fzone_conf_vlan);
+                exit(1);
+            }
+        } else {
+            $fzone_conf = sprintf("db.%s",$dns_domain);
+            printf("\n");
+            printf("Generating forward zone configuration: %s\n",$fzone_conf);
+            $fh = fopen($fzone_conf,"w");
+            if( $fh == false ){
+                printf(">>> ERROR: Unable to open %s for writing!\n\n",$fzone_conf);
+                exit(1);
+            }
         }
     }
     get_hosts();

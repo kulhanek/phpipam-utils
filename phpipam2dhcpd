@@ -165,9 +165,6 @@ function get_subnet()
     
     $subnet_data = json_decode($server_output);
        
-            var_dump($subnet_data);
-        exit(1);
- 
     if( $subnet_data->success == false ){
         printf(">>> ERROR: Unable to get hosts for %s\n\n",$subnet);
         var_dump($subnet_data); 
@@ -444,7 +441,8 @@ function generate_header($fh)
     fprintf($fh,"\n");
     fprintf($fh,"   option routers             %s;\n",$subnet_data->data->calculation->{'Min host IP'});
     fprintf($fh,"   option subnet-mask         %s;\n",$subnet_data->data->calculation->{'Subnet netmask'});
-    fprintf($fh,"   option domain-name-servers 147.251.4.33, 147.251.6.10;\n");
+    $namesrvs = str_replace(";",",",$subnet_data->data->nameservers->namesrv1);
+    fprintf($fh,"   option domain-name-servers %s;\n",$namesrvs);
     fprintf($fh,"   option domain-name         \"%s\";\n",$subnet_data->data->custom_Domain);
 
 

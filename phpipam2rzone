@@ -15,9 +15,18 @@ printf("\n");
 $arg_start=1;
 $nargs = $argc;
 $print_header = true;
+$no_vlan = false;
 
 if( $nargs > 1 ){
-    if( $argv[1] == "--no-header" ){
+    if( $argv[$arg_start] == "--no-vlan" ){
+        $arg_start=2;
+        $nargs--;
+        $no_vlan = true;
+    }
+}
+
+if( $nargs > 1 ){
+    if( $argv[$arg_start] == "--no-header" ){
         $arg_start=2;
         $nargs--;
         $print_header = false;
@@ -359,13 +368,17 @@ function print_header()
 
 function print_data()
 {
-    global $hosts, $dhcp_classes;
+    global $hosts, $dhcp_classes, $subnet_data;
 
     print_header();
     
     foreach($hosts->data as $item){
         if( ( $item->ip != "" ) && ( $item->hostname != "" ) ){
-            printf("%2s % 5d | %-16s | %-25s \n",'',$item->id,$item->ip,$item->hostname);
+            $hostname = trim($item->hostname);
+            if ( strpos($hostname, ".") == false ){
+                $hostname = $hostname . "." . $subnet_data->data->custom_Domain;
+            }
+            printf("%2s % 5d | %-16s | %-25s \n",'',$item->id,$item->ip,$hostname);
         }
     }
     
@@ -424,11 +437,13 @@ function generate_header($fh)
 
 function generate_group($fh)
 {
-    global $hosts, $dns_domain, $subnet, $vlan_data, $subnet_data;
+    global $hosts, $dns_domain, $subnet, $vlan_data, $subnet_data, $no_vlan;
 
     fprintf($fh,"\n");
     fprintf($fh,"; subnet     : %s\n",$subnet);
-    fprintf($fh,"; vlan       : %d (%s)\n",$vlan_data->data->number, $vlan_data->data->name);
+    if( $no_vlan == false ){
+        fprintf($fh,"; vlan       : %d (%s)\n",$vlan_data->data->number, $vlan_data->data->name);
+    }
     fprintf($fh,"; admin      : %s\n",$subnet_data->data->custom_Admin);
     fprintf($fh,"; tech admin : %s\n",$subnet_data->data->custom_TechAdmin);
     if( $subnet_data->data->custom_NSAdmin != "" ){
@@ -444,7 +459,11 @@ function generate_group($fh)
         if( ( $item->ip == "" ) || ( $item->hostname == "" ) ) continue;
         fprintf($fh,"\n");
         $ip_items = explode(".", $item->ip);
-        fprintf($fh,"%-3d  IN  PTR  %s.\n",$ip_items[3],$item->hostname); 
+        $hostname = trim($item->hostname);
+        if ( strpos($hostname, ".") == false ){
+            $hostname = $hostname . "." . $subnet_data->data->custom_Domain;
+        }
+        fprintf($fh,"%-3d  IN  PTR  %s.\n",$ip_items[3],$hostname); 
         if( $item->location > 0 ){
         fprintf($fh,"   ; Location:  %s\n",get_location_name($item->location));
         }
@@ -528,13 +547,18 @@ for($i=$start;$i<$argc;$i++){
     }
     get_subnetid();
     get_subnet();
-    get_vlan();
+    if( $no_vlan == false ){
+        get_vlan();
+    }
 
     if( ! $print_header ){
         $subnet_items = explode("/", $subnet);
         $ip_items = explode(".", $subnet_items[0]);
-
-        $rzone_conf = sprintf("db.%d.%d.%d.vlan%d",$ip_items[0],$ip_items[1],$ip_items[2],$vlan_data->data->number);
+        if( $no_vlan == false ){
+            $rzone_conf = sprintf("db.%d.%d.%d.vlan%d",$ip_items[0],$ip_items[1],$ip_items[2],$vlan_data->data->number);
+        } else {
+            $rzone_conf = sprintf("db.%d.%d.%d",$ip_items[0],$ip_items[1],$ip_items[2]);
+        }
 
         printf("\n"); 
         printf("Generating reverse zone configuration: %s\n",$rzone_conf);
