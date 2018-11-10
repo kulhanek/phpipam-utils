@@ -10,7 +10,7 @@ Copy phpipam.conf.tmp as phpipam.conf and update configuration items.
 
 ### Overview
 * DHCP
-** phpipam2dhcpd
+  * phpipam2dhcpd
 * DNS
   * phpipam2fzone
   * phpipam2rzone
