@@ -1,11 +1,11 @@
 #!/usr/bin/env php
 <?php
 // -----------------------------------------------------------------------------
-// Usage: $ ./phpipam2labels -s <subnet> [-n <name>] [-r <regexp>] [-f <ipam_field> -v <value>]
+// Usage: $ ./phpipam2label-ips -s <subnet> [-n <name>] [-r <regexp>] [-f <ipam_field> -v <value>]
 //
 // Examples:
-//        $ ./phpipam2labels -s 147.251.90.0/24 -n fes.ncbr.muni.cz
-//        $ ./phpipam2labels -s 147.251.84.0/24 -r /wolf[012][0-9].ncbr.muni.cz/
+//        $ ./phpipam2label-ips -s 147.251.90.0/24 -n fes.ncbr.muni.cz
+//        $ ./phpipam2label-ips -s 147.251.84.0/24 -r /wolf[012][0-9].ncbr.muni.cz/
 //
 // Output:
 //        labels sent to the printer
@@ -15,7 +15,7 @@ $arguments = getopt("s:n:r:v:f:h");
 
 if(array_key_exists("h",$arguments)) {
     echo "\n";
-    echo "Usage: phpipam2labels -s <subnet> [-n <name>] [-r <regexp>] [-f <ipam_field> -v <value>]\n";
+    echo "Usage: phpipam2label-ips -s <subnet> [-n <name>] [-r <regexp>] [-f <ipam_field> -v <value>]\n";
     echo "\n";
     echo "       -s subnet in CDIR format (mandatory)\n";
     echo "       -n single hostname\n";
@@ -23,8 +23,8 @@ if(array_key_exists("h",$arguments)) {
     echo "       -f ipam_field and its value -v\n";
     echo "\n";    
     echo "Examples:\n";
-    echo "  $ phpipam2labels -s 147.251.90.0/24 -n fes.ncbr.muni.cz\n";
-    echo "  $ phpipam2labels -s 147.251.84.0/24 -r /wolf[012][0-9].ncbr.muni.cz/\n";   
+    echo "  $ phpipam2label-ips -s 147.251.90.0/24 -n fes.ncbr.muni.cz\n";
+    echo "  $ phpipam2label-ips -s 147.251.84.0/24 -r /wolf[012][0-9].ncbr.muni.cz/\n";   
     echo "\n";
     exit(0);
 }
