@@ -4,7 +4,7 @@ Utilities for [phpIPAM](https://phpipam.net/), which is an open-source web IP ad
 
 ## Configuration
 
-Copy phpipam.conf.tmp as phpipam.conf and update configuration items.
+Copy phpipam.conf.tmp as phpipam.conf and update configuration items. Some utilities requires the [brother_ql](https://pypi.org/project/brother_ql/) command.
 
 ## Utilities
 
@@ -53,7 +53,7 @@ $ ./phpipam2rzone 147.251.90.0/24                      # create db.147.251.90 fi
 
 ### phpipam2label-ips
 
-phpipam2label-ips prints labels for IPs (hosts) on Brother QL-700 printer. This command requires properly setup [brother_ql](https://pypi.org/project/brother_ql/) command. Typical output is then:
+phpipam2label-ips prints labels for IPs (hosts) on Brother QL-700 printer. This command requires the [brother_ql](https://pypi.org/project/brother_ql/) command. Typical output is then:
 
 ![IP Label](/examples/ip.png)
 
