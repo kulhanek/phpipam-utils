@@ -12,16 +12,16 @@ Copy phpipam.conf.tmp as phpipam.conf and update configuration items.
 * DHCP
 ** phpipam2dhcpd
 * DNS
-** phpipam2fzone
-** phpipam2rzone
+  * phpipam2fzone
+  * phpipam2rzone
 * Labels
-** phpipam2label-ips
-** phpipam2label-devs
+  * phpipam2label-ips
+  * phpipam2label-devs
 * Administrative
-** nmap2phpipam
-** dns2phpipam
-** updateaddresses
-** phpipam2razor
+  * nmap2phpipam
+  * dns2phpipam
+  * updateaddresses
+  * phpipam2razor
 
 ### phpipam2dhcpd
 
