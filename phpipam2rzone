@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 // -----------------------------------------------------------------------------
-// Usage: $ ./phpipam2rzone [--no-header] <subnet>
+// Usage: $ ./phpipam2rzone [--no-vlan] [--no-header] <subnet>
 //
 // Example:
 //        $ ./phpipam2rzone 147.251.90.0/24

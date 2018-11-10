@@ -1,10 +1,10 @@
 #!/usr/bin/env php
 <?php
 // -----------------------------------------------------------------------------
-// Usage: $ ./phpipam2dhcp <subnet>
+// Usage: $ ./phpipam2dhcp [--no-vlan] <subnet>
 //
 // Example:
-//        $ ./phpipam2dhcp [--no-vlan] 147.251.90.0/24
+//        $ ./phpipam2dhcp 147.251.90.0/24
 //
 // Output file:
 //        147.251.90.0.conf
