@@ -22,6 +22,7 @@ Copy phpipam.conf.tmp as phpipam.conf and update configuration items.
   * dns2phpipam
   * updateaddresses
   * phpipam2razor
+  * phpipam2ports
 
 ### phpipam2dhcpd
 
@@ -95,5 +96,13 @@ phpipam2razor generates list of hosts with razor classes. The utilitity requires
 
 ```bash
 $ ./phpipam2razor 147.251.90.0/24 > nodes
+```
+
+### phpipam2ports
+
+phpipam2ports generates description of ports of given device. The utilitity requires read access for both API and user. Typical usage:
+
+```bash
+$ ./phpipam2ports 2S027SW2A                            # create 2S027SW2A.ports file
 ```
 

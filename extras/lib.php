@@ -12,6 +12,7 @@ $subnet_data = "";
 $dhcp_classes = [];
 $locationsdb = [];
 $devsdb = [];
+$device_data = [];
 
 // -----------------------------------------------------------------------------
 
@@ -254,6 +255,43 @@ function get_location_name($id)
     $name = $loc_data->data->name;
     $locationsdb[$id] = $name;
     return($name);
+}
+
+// -----------------------------------------------------------------------------
+
+function get_devices()
+{   
+    global $url, $token, $devices;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url . "devices/");
+    curl_setopt($ch, CURLOPT_HTTPGET, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $headers = [
+        "token: $token"
+    ];
+    
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);    
+
+    $server_output = curl_exec ($ch);
+    
+    if( $server_output == FALSE ){
+        printf(">>> ERROR: Unable to connect to IPAM: %s\n\n",curl_error($ch));
+        curl_close ($ch);
+        exit(1);
+    }    
+
+    curl_close ($ch);
+    
+    $devices = json_decode($server_output);
+    
+    if( $devices->success == false ){
+        printf("\n>>> ERROR: Unable to devices!\n\n");
+        var_dump($devices); 
+        exit(1);
+    } 
+    // var_dump($devices);  
 }
 
 // -----------------------------------------------------------------------------
