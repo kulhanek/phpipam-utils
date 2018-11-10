@@ -53,6 +53,7 @@ $ ./phpipam2rzone 147.251.90.0/24                      # create db.147.251.90 fi
 ### phpipam2label-ips
 
 phpipam2label-ips prints labels for IPs (hosts) on Brother QL-700 printer. This command requires properly setup [brother_ql](https://pypi.org/project/brother_ql/) command. Typical output is then:
+
 ![IP Label](/examples/ip.png)
 
 
