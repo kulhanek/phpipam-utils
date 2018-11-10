@@ -46,7 +46,7 @@ $ ./phpipam2dhcpd 147.251.90.0/24                      # create 147.251.90.0.con
 ### phpipam2label-ips
 
 phpipam2label-ips print IP labels on Brother QL-700 printer. Typical example is
-![IP Label](/examples/ip.pngL)
+![IP Label](/examples/ip.png)
 
 
 ```bash
