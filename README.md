@@ -52,7 +52,7 @@ $ ./phpipam2rzone 147.251.90.0/24                      # create db.147.251.90 fi
 
 ### phpipam2label-ips
 
-phpipam2label-ips prints labels for IPs (hosts) on Brother QL-700 printer. Typical output is
+phpipam2label-ips prints labels for IPs (hosts) on Brother QL-700 printer. This command requires properly setup [brother_ql](https://pypi.org/project/brother_ql/) command. Typical output is then:
 ![IP Label](/examples/ip.png)
 
 
@@ -90,7 +90,7 @@ $ ./updateaddresses 147.251.90.0/24
 
 ### phpipam2razor
 
-phpipam2razor generate list of hosts with razor classes. The utilitity requires read access for both API and user. Typical usage:
+phpipam2razor generates list of hosts with razor classes. The utilitity requires read access for both API and user. Typical usage:
 
 ```bash
 $ ./phpipam2razor 147.251.90.0/24 > nodes
