@@ -336,11 +336,7 @@ function get_device_name($id)
         exit(1);
     }
 
-    if( $dev_data->data->description != '' ){
-        $name = sprintf("%s (%s)",$dev_data->data->hostname,str_replace("\r",'',str_replace("\n", ' ', $dev_data->data->description)));
-    } else {
-        $name = sprintf("%s",$dev_data->data->hostname);
-    }
+    $name = sprintf("%s",$dev_data->data->hostname);
     if( $dev_data->data->custom_Port !=  '' ){
         $name = $name . '/' . trim($dev_data->data->custom_Port);
     }
