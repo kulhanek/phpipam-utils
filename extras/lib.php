@@ -341,8 +341,59 @@ function get_device_name($id)
     } else {
         $name = sprintf("%s",$dev_data->data->hostname);
     }
+    if( $dev_data->data->custom_Port !=  '' ){
+        $name = $name . '/' . trim($dev_data->data->custom_Port);
+    }
     $devsdb[$id] = $name;
     return($name);
 }
+
+// -----------------------------------------------------------------------------
+
+function get_host_fqdn($host)
+{
+    global $subnet_data;
+
+    $fqdn= trim($host->hostname);
+    if ( strpos($fqdn, ".") == false ){
+        $fqdn = $fqdn . "." . $subnet_data->data->custom_Domain;
+    }
+    return($fqdn);
+}
+
+// -----------------------------------------------------------------------------
+
+function get_host_name($host)
+{
+    $names = explode(".",trim($host->hostname));
+    return($names[0]);
+}
+
+// -----------------------------------------------------------------------------
+
+function get_host_admin($host)
+{
+    if( $host->custom_Admin == "User" ){
+        $admin = $host->custom_User;
+    } else {
+        $admin = $host->custom_Admin;
+    }
+    return(trim($admin));
+}
+
+// -----------------------------------------------------------------------------
+
+function get_host_plug($host)
+{
+    $plug = $host->port;
+    if( $host->deviceId != 0 ){
+        $devstr = get_device_name($host->deviceId);
+        if( $plug == '' ) $plug = 'Px';
+        $plug = $plug . '[' . trim($devstr) . ']';
+    }
+    return($plug);
+}
+
+// -----------------------------------------------------------------------------
 
 ?>

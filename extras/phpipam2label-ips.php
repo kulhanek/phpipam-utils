@@ -58,7 +58,7 @@ $dims = array (
         '62x100' => array(696,1109)
         );
         
-$picname = "label.png";
+$picname = __DIR__ . "/label.png";
         
 echo "\n";
 printf("SubNet : %s\n",$subnet);
@@ -80,14 +80,42 @@ function list_hosts($hosts)
     
     $i = 0;
     foreach($hosts as $item){
-        $hostname = trim($item->hostname);
-        if ( strpos($hostname, ".") == false ){
-            $hostname = $hostname . "." . $subnet_data->data->custom_Domain;
-        }    
-        printf("%-16s | %-25s\n",$item->ip,$hostname);
+        printf("%-16s | %-25s\n",$item->ip,get_host_fqdn($item));
+        
+        printf("   # Admin:        %s\n",get_host_admin($item));
+
+        if( $item->mac != "" ){
+        printf("   # MAC:          %s\n",trim($item->mac));
+        }
+        if( $item->custom_DHCP != "" ){
+        printf("   # DHCP:         %s\n",trim($item->custom_DHCP));
+        }         
+        
+        if( ($item->port != "") || ($item->deviceId > 0) ){
+        printf("   # Plug/port:    %s\n",get_host_plug($item));
+        }
+        if( $item->location > 0 ){
+        printf("   # Room:         %s\n",get_location_name($item->location));
+        }
+        printf("   # Group:        %s\n",$item->custom_Group);
+        
+        if( $item->custom_Institute != "" ){
+        printf("   # Institute:    %s\n",trim($item->custom_Institute));
+        }  
+        if( $item->custom_AssetNo != "" ){
+        printf("   # Asset number: %s\n",trim($item->custom_AssetNo));
+        } 
+        if( $item->custom_Acquired != "" ){
+        printf("   # Acquired:     %s\n",trim($item->custom_Acquired));
+        } 
+        
+        if( $item->custom_Cluster != "" ){
+        printf("   # Cluster:      %s\n",$item->custom_Cluster);
+        }        
+        printf("\n");   
         $i++;
     }
-    printf("\n");
+
     printf("Number of hosts: %d\n",$i);
     printf("\n");      
 }
@@ -205,9 +233,9 @@ function label_host($host)
 {
     global $picname, $dims, $labels;
     
-    $font1 = __DIR__ . '/extras/fonts/Roboto-Regular.ttf';
-    $font2 = __DIR__ . '/extras/fonts/Roboto-Bold.ttf';
-    $font3 = __DIR__ . '/extras/fonts/RobotoMono-Regular.ttf';
+    $font1 = __DIR__ . '/fonts/Roboto-Regular.ttf';
+    $font2 = __DIR__ . '/fonts/Roboto-Bold.ttf';
+    $font3 = __DIR__ . '/fonts/RobotoMono-Regular.ttf';
     
     $result = true;
     $w = $dims[$labels][1]; // reverse order by intention
@@ -230,23 +258,14 @@ function label_host($host)
     print_rectangle($img,array(0,0,$w-50,$h),5,$black);
 
     // name
-    $hostname = trim($host->hostname);
-    if ( strpos($hostname, ".") == false ){
-        $hostname = $hostname . "." . $subnet_data->data->custom_Domain;
-    }
-    $mname = explode(".",$hostname);
+    $hostname = get_host_fqdn($host);
+    $name = get_host_name($host);
     print_rectangle($img,array(0,0,$w-50,300),5,$black);
-    print_text($img,array(5,5,$w-60,290),$font2,180,0,$black,strtoupper($mname[0]));
+    print_text($img,array(5,5,$w-60,290),$font2,180,0,$black,strtoupper($name));
     
     // administrator
     print_rectangle($img,array(0,295,$w-50,80),5,$black);
-    
-    $admin = "";
-    if( ($host->custom_Admin != "User") && ($host->custom_Admin != "") ){
-        $admin = $host->custom_Admin;
-    } else {
-        $admin = $host->custom_User;
-    }
+    $admin = get_host_admin($host);
     if( $admin != '' ){
         $notice = sprintf("Admin: %s",$admin);
     } else {
@@ -255,17 +274,11 @@ function label_host($host)
     print_text($img,array(5,300,$w-60,80),$font1,36,0,$black,$notice);
     
     $notice = '';
-    $notice = $notice . sprintf("DNS  : %-22s\n",trim($hostname));
+    $notice = $notice . sprintf("Name : %-22s\n",trim($hostname));
     $notice = $notice . sprintf("IP   : %-22s\n",trim($host->ip));
     $notice = $notice . sprintf("MAC  : %-22s\n",trim($host->mac));
     $notice = $notice . sprintf("DHCP : %-22s\n",trim($host->custom_DHCP));
-    $plug = $host->port;
-    if( $host->deviceId != 0 ){
-        $devstr = get_device_name($host->deviceId);
-        if( $plug == '' ) $plug = 'Px';
-        $plug = $plug . '(' . trim($devstr) . ')';
-        }
-    $notice = $notice . sprintf("Plug : %-22s\n",trim($plug));
+    $notice = $notice . sprintf("Plug : %-22s\n",trim(get_host_plug($host)));
     $notice = $notice . sprintf("Room : %-22s\n",trim(get_location_name($host->location)));
     $notice = $notice . sprintf("Group: %-22s\n",trim($host->custom_Group));    
     
@@ -280,6 +293,8 @@ function label_host($host)
     $notice = $notice . sprintf("%s\n",trim($host->custom_Acquired));
     $notice = $notice . "\n";
     $notice = $notice . "\n";
+    
+    // cluster
     if( $host->custom_Cluster != '' ){
         $notice = $notice . "Cluster:\n";
         $notice = $notice . trim($host->custom_Cluster);
@@ -335,10 +350,23 @@ foreach($hosts->data as $item){
 list_hosts($print_hosts);
 
 // ask to confirm
-// TODO
+echo "Is this correct?  Type 'yes' to continue: ";
+$handle = fopen ("php://stdin","r");
+$line = fgets($handle);
+if( trim($line) != 'yes' ){
+    echo "ABORTING!\n";
+    exit(1);
+}
+
+printf("\n");
+printf("Printing ...\n"); 
+printf("\n"); 
+printf("        IP               HostName             \n");          
+printf("------------------ ---------------------------\n");
 
 // print labels
 foreach($print_hosts as $item){
+    printf("%-16s | %-25s\n",$item->ip,get_host_fqdn($item));
     // create label picture
     if( label_host($item) == false ){
         echo "\n";
@@ -347,6 +375,9 @@ foreach($print_hosts as $item){
         exit(1);
     }
     // send it to printer
+    $cmd = 'brother_ql -m ' . $model . ' -p ' . $port . ' print -l ' . $labels . ' -r 90 ' . __DIR__ . '/label.png';
+    system($cmd);
+    printf("\n");
 }
 
 ?>

@@ -73,11 +73,7 @@ function print_data()
     
     foreach($hosts->data as $item){
         if( ( $item->ip != "" ) && ( $item->hostname != "" ) ){
-            $hostname = trim($item->hostname);
-            if ( strpos($hostname, ".") == false ){
-                $hostname = $hostname . "." . $subnet_data->data->custom_Domain;
-            }
-            printf("%2s % 5d | %-16s | %-25s \n",'',$item->id,$item->ip,$hostname);
+            printf("%2s % 5d | %-16s | %-25s \n",'',$item->id,$item->ip,get_host_fqdn($item));
         }
     }
     
@@ -158,30 +154,16 @@ function generate_group($fh)
         if( ( $item->ip == "" ) || ( $item->hostname == "" ) ) continue;
         fprintf($fh,"\n");
         $ip_items = explode(".", $item->ip);
-        $hostname = trim($item->hostname);
-        if ( strpos($hostname, ".") == false ){
-            $hostname = $hostname . "." . $subnet_data->data->custom_Domain;
-        }
-        fprintf($fh,"%-3d  IN  PTR  %s.\n",$ip_items[3],$hostname); 
+        fprintf($fh,"%-3d  IN  PTR  %s.\n",$ip_items[3],get_host_fqdn($item)); 
         if( $item->location > 0 ){
         fprintf($fh,"   ; Location:  %s\n",get_location_name($item->location));
         }
-        if( $item->port != "" ){
-        fprintf($fh,"   ; Plug/port: %s\n",$item->port);
+        if( ($item->port != "") || ($item->deviceId != 0) ){
+        fprintf($fh,"   ; Plug/port: %s\n",get_host_plug($item));
         }
-        if( $item->deviceId != 0 ){
-            $devstr = get_device_name($item->deviceId);
-        fprintf($fh,"   ; Device:    %s\n",$devstr);
-        }
-        if( ($item->custom_Admin != "User") && ($item->custom_Admin != "") ){
-        fprintf($fh,"   ; Admin:     %s\n",$item->custom_Admin);
+        fprintf($fh,"   ; Admin:     %s\n",get_host_admin($item));
         if( $item->custom_User != "" ){
         fprintf($fh,"   ; User:      %s\n",$item->custom_User);
-        }
-        } else {
-        if( $item->custom_User != "" ){
-        fprintf($fh,"   ; User and admin: %s\n",$item->custom_User);
-        }
         }
         if( $item->custom_Group != "" ){
         fprintf($fh,"   ; Group:     %s\n",$item->custom_Group);

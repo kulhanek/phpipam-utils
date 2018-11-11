@@ -59,7 +59,7 @@ function generate_group()
         if( ( $item->ip == "" ) || ( $item->hostname == "" ) || ( $item->mac == "" ) || ( $item->custom_Razor == "" ) ) continue;
         printf("\n");        
         printf("  # --\n");
-        printf("  # Admin     : %s\n",$item->custom_Admin);
+        printf("  # Admin     : %s\n",get_host_admin($item));
         if( $item->custom_User != "" ){
         printf("  # User      : %s\n",$item->custom_User); 
         }
@@ -70,10 +70,10 @@ function generate_group()
         if( $item->location > 0 ){
         printf("  # Location  : %s\n",get_location_name($item->location));
         }
-        if( $item->port != "" ){
-        printf("  # Plug/port : %s\n",$item->port);
+        if( ($item->port != '') || ($item->deviceId > 0) ){
+        printf("  # Plug/port : %s\n",get_host_plug($item));
         }        
-        printf("%s %s %s\n",$item->hostname,$item->mac,$item->custom_Razor);
+        printf("%s %s %s\n",get_host_fqdn($item),$item->mac,$item->custom_Razor);
     }
 
     printf("\n");
