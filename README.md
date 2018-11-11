@@ -63,6 +63,16 @@ phpipam2label-ips prints labels for IPs (hosts) on Brother QL-700 printer. This 
 ./phpipam2label-ips -s 147.251.84.0/24 -n wolf18.ncbr.muni.cz
 ```
 
+### phpipam2label-ips
+
+phpipam2label-ips prints labels for devices on Brother QL-700 printer. This command requires the [brother_ql](https://pypi.org/project/brother_ql/) command. Typical usage is:
+
+
+```bash
+./phpipam2label-devs -h                                 # print help page   
+./phpipam2label-devs -n 1.18SW1
+```
+
 ### nmap2phpipam
 
 nmap2phpipam populates given subnet with addresses retrieved by ARP scanning of subnet by nmap. The utilitity requires read/write access for both API and user. Typical usage:

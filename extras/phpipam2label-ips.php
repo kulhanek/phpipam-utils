@@ -37,12 +37,6 @@ if(array_key_exists("s",$arguments) == FALSE) {
 }
 
 $subnet = $arguments["s"];
-$subnetid = 0;
-$data = [];
-$hosts = [];
-$subnet_data = "";
-$locationsdb = [];
-$devsdb = [];
 
 // -----------------------------------------------------------------------------
 // access to phpIPAM api
@@ -58,7 +52,7 @@ $dims = array (
         '62x100' => array(696,1109)
         );
         
-$picname = __DIR__ . "/label.png";
+$picname = __DIR__ . "/label-ip.png";
         
 echo "\n";
 printf("SubNet : %s\n",$subnet);
@@ -118,113 +112,6 @@ function list_hosts($hosts)
 
     printf("Number of hosts: %d\n",$i);
     printf("\n");      
-}
-
-// -----------------------------------------------------------------------------
-
-function imagettfbboxextended($size, $angle, $fontfile, $text) {
-    /*this function extends imagettfbbox and includes within the returned array
-    the actual text width and height as well as the x and y coordinates the
-    text should be drawn from to render correctly.  This currently only works
-    for an angle of zero and corrects the issue of hanging letters e.g. jpqg*/
-    $bbox = imagettfbbox($size, $angle, $fontfile, $text);
-
-    //calculate x baseline
-    if($bbox[0] >= -1) {
-        $bbox['x'] = abs($bbox[0] + 1) * -1;
-    } else {
-        //$bbox['x'] = 0;
-        $bbox['x'] = abs($bbox[0] + 2);
-    }
-
-    //calculate actual text width
-    $bbox['width'] = abs($bbox[2] - $bbox[0]);
-    if($bbox[0] < -1) {
-        $bbox['width'] = abs($bbox[2]) + abs($bbox[0]) - 1;
-    }
-
-    //calculate y baseline
-    $bbox['y'] = abs($bbox[5] + 1);
-
-    //calculate actual text height
-    $bbox['height'] = abs($bbox[7]) - abs($bbox[1]);
-    if($bbox[3] > 0) {
-        $bbox['height'] = abs($bbox[7] - $bbox[1]) - 1;
-    }
-
-    return $bbox;
-}
-
-// -----------------------------------------------------------------------------
-
-function print_text($img,$box,$font,$size,$angle,$color,$text)
-{
-    do {
-        $shrink = false;
-        $bbox = imagettfbboxextended($size,0,$font,$text);
-        if( $angle == 0 ){
-            $x = $box[0] + $bbox['x'] + ($box[2]-$bbox['width'])/2;
-            $y = $box[1] + $bbox['y'] + ($box[3]-$bbox['height'])/2;
-        } else if ( $angle == 90 ) {
-            $x = $box[0] + $bbox['y'] + ($box[2]-$bbox['height'])/2;
-            $y = $box[1] + $box[3] - ($bbox['x'] + ($box[3]-$bbox['width'])/2); 
-        } else {
-            printf("not supported angle!\n");
-            exit(1);
-        }
-        // autoshrink for horizontal text
-        if( $angle == 0 ){        
-            if( $box[2] < $bbox['width'] ){
-                $size -= 5;
-                $shrink = true;
-            } 
-        }
-    } while( $shrink == true );
-    
-//     $red = imagecolorallocate($img,  255,   0,    0);
-//     imagerectangle($img,$box[0],$box[1],$box[0]+$box[2]-1,$box[1]+$box[3]-1,$red);
-    
-    imagettftext($img,$size,$angle,$x,$y,$color,$font,$text); 
-}
-
-// -----------------------------------------------------------------------------
-
-function print_text_na($img,$box,$font,$size,$angle,$color,$text)
-{
-    $bbox = imagettfbboxextended($size,0,$font,$text);
-    if( $angle == 0 ){
-        $x = $box[0] + $bbox['x'];
-        $y = $box[1] + $bbox['y'];
-    } else if ( $angle == 90 ) {
-        $x = $box[0] + $bbox['y'];
-        $y = $box[1] + $box[3] - $bbox['x']; 
-    } else {
-        printf("not supported angle!\n");
-        exit(1);
-    }
-    
-//     $red = imagecolorallocate($img,  255,   0,    0);
-//     imagerectangle($img,$box[0],$box[1],$box[0]+$box[2]-1,$box[1]+$box[3]-1,$red);
-    
-    imagettftext($img,$size,$angle,$x,$y,$color,$font,$text); 
-}
-
-// -----------------------------------------------------------------------------
-
-function print_rectangle($img,$box,$width,$color)
-{
-    $x1 = $box[0];
-    $y1 = $box[1];
-    $x2 = $x1 + $box[2] - 1;
-    $y2 = $y1 + $box[3] - 1;
-
-    for($i=0; $i < $width; $i++){
-        imagerectangle($img,$x1,$y1,$x2,$y2,$color);
-        $x1++;
-        $y1++;
-        $x2--;
-        $y2--;
-    }
 }
 
 // -----------------------------------------------------------------------------
@@ -375,7 +262,7 @@ foreach($print_hosts as $item){
         exit(1);
     }
     // send it to printer
-    $cmd = 'brother_ql -m ' . $model . ' -p ' . $port . ' print -l ' . $labels . ' -r 90 ' . __DIR__ . '/label.png';
+    $cmd = 'brother_ql -m ' . $model . ' -p ' . $port . ' print -l ' . $labels . ' -r 90 ' . $picname;
     system($cmd);
     printf("\n");
 }

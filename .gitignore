@@ -2,5 +2,6 @@ phpipam.conf
 *.kate-swp
 *.nmap
 *.conf
-label.png
+label-ip.png
+label-dev.png
 db.*
