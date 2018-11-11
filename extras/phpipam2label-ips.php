@@ -226,7 +226,12 @@ foreach($hosts->data as $item){
     }
     if( array_key_exists("r",$arguments) == true ){
         if( preg_match($arguments["r"],$hostname) == 0 ) $selected = false;
-    }    
+    } 
+    if( array_key_exists("f",$arguments) == true ){
+        $key = $arguments["f"];
+        $value = $arguments["v"];
+        if( $item->$key != $value  ) $selected = false;
+    }     
     
     if( $selected == true ){
         array_push($print_hosts,$item);
