@@ -63,9 +63,9 @@ phpipam2label-ips prints labels for IPs (hosts) on Brother QL-700 printer. This 
 ./phpipam2label-ips -s 147.251.84.0/24 -n wolf18.ncbr.muni.cz
 ```
 
-### phpipam2label-ips
+### phpipam2label-devs
 
-phpipam2label-ips prints labels for devices on Brother QL-700 printer. This command requires the [brother_ql](https://pypi.org/project/brother_ql/) command. Typical usage is:
+phpipam2label-devs prints labels for devices on Brother QL-700 printer. This command requires the [brother_ql](https://pypi.org/project/brother_ql/) command. Typical usage is:
 
 
 ```bash
